@@ -1,0 +1,66 @@
+﻿body, section, p, div, figure, span, b, button, a {
+	margin: 0;
+	padding: 0;
+}
+
+#btnReloadCSS {
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	z-index: 9999;
+}
+
+$light-blue: #05D3F8;
+$blue: #009DDD;
+$mid-blue: #386DBD;
+$dark-blue: #0F4571;
+$black: #3A3132;
+
+@mixin keyframes($name) {
+	@-moz-keyframes #{$name} {
+		@content;
+	}
+	@-webkit-keyframes #{$name} {
+		@content;
+	}
+	@keyframes #{$name} {
+		@content;
+	}
+}
+
+/**
+ * this super-shadow is originated from: http://codepen.io/zitrusfrisch
+ */
+@mixin super-shadow {
+	text-shadow: 0 1px 0 hsl(174,5%,80%), 0 2px 0 hsl(174,5%,75%), 0 3px 0 hsl(174,5%,70%), 0 4px 0 hsl(174,5%,66%), 0 5px 0 hsl(174,5%,64%), 0 6px 0 hsl(174,5%,62%), 0 7px 0 hsl(174,5%,61%), 0 8px 0 hsl(174,5%,60%), 0 0 5px rgba(0,0,0,.05), 0 1px 3px rgba(0,0,0,.2), 0 3px 5px rgba(0,0,0,.2), 0 5px 10px rgba(0,0,0,.2), 0 10px 10px rgba(0,0,0,.2), 0 20px 20px rgba(0,0,0,.3);
+}
+
+// 来自 http://www.paulund.co.uk/creating-different-css3-box-shadows-effects
+%card-effect {
+	&:before, &:after {
+		z-index: -1;
+		position: absolute;
+		content: "";
+		bottom: 15px;
+		left: 10px;
+		width: 50%;
+		top: 80%;
+		background: #777;
+		box-shadow: 0 15px 10px #777;
+		-moz-transform: rotate(-3deg);
+		-ms-transform: rotate(-3deg);
+		-o-transform: rotate(-3deg);
+		-webkit-transform: rotate(-3deg);
+		transform: rotate(-3deg);
+	}
+
+	&:after {
+		-moz-transform: rotate(3deg);
+		-ms-transform: rotate(3deg);
+		-o-transform: rotate(3deg);
+		-webkit-transform: rotate(3deg);
+		transform: rotate(3deg);
+		right: 10px;
+		left: auto;
+	}
+}

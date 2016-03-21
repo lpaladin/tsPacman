@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<title>-</title>
+	<meta charset="utf-8" />
+	<style>
+		body {
+			-moz-animation: preload 1s ease 1 normal forwards;
+			-o-animation: preload 1s ease 1 normal forwards;
+			-webkit-animation: preload 1s ease 1 normal forwards;
+			animation: preload 1s ease 1 normal forwards;
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			-webkit-user-select: none;
+			user-select: none;
+			cursor: default;
+			font-family: 'Microsoft YaHei';
+		}
+
+		.centered {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			text-align: center;
+			-moz-transform: translate(-50%, -50%);
+			-ms-transform: translate(-50%, -50%);
+			-o-transform: translate(-50%, -50%);
+			-webkit-transform: translate(-50%, -50%);
+			transform: translate(-50%, -50%);
+		}
+
+		body > section {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+		}
+
+		#sLoading figure {
+			-moz-animation: beating 1.5s ease infinite alternate;
+			-o-animation: beating 1.5s ease infinite alternate;
+			-webkit-animation: beating 1.5s ease infinite alternate;
+			animation: beating 1.5s ease infinite alternate;
+			font-weight: bold;
+			font-size: 2em;
+			color: white;
+		}
+
+		@-moz-keyframes preload {
+			from {
+				background-color: white;
+			}
+			to {
+				background-color: black;
+			}
+		}
+
+		@-webkit-keyframes preload {
+			from {
+				background-color: white;
+			}
+			to {
+				background-color: black;
+			}
+		}
+
+		@keyframes preload {
+			from {
+				background-color: white;
+			}
+			to {
+				background-color: black;
+			}
+		}
+
+		@keyframes beating {
+			from {
+				-moz-transform: scale(1);
+				-ms-transform: scale(1);
+				-o-transform: scale(1);
+				-webkit-transform: scale(1);
+				transform: scale(1);
+			}
+			to {
+				-moz-transform: scale(1.1);
+				-ms-transform: scale(1.1);
+				-o-transform: scale(1.1);
+				-webkit-transform: scale(1.1);
+				transform: scale(1.1);
+			}
+		}
+
+		@-moz-keyframes beating {
+			from {
+				-moz-transform: scale(1);
+				-ms-transform: scale(1);
+				-o-transform: scale(1);
+				-webkit-transform: scale(1);
+				transform: scale(1);
+			}
+			to {
+				-moz-transform: scale(1.1);
+				-ms-transform: scale(1.1);
+				-o-transform: scale(1.1);
+				-webkit-transform: scale(1.1);
+				transform: scale(1.1);
+			}
+		}
+
+		@-webkit-keyframes beating {
+			from {
+				-moz-transform: scale(1);
+				-ms-transform: scale(1);
+				-o-transform: scale(1);
+				-webkit-transform: scale(1);
+				transform: scale(1);
+			}
+			to {
+				-moz-transform: scale(1.1);
+				-ms-transform: scale(1.1);
+				-o-transform: scale(1.1);
+				-webkit-transform: scale(1.1);
+				transform: scale(1.1);
+			}
+		}
+	</style>
+</head>
+<body>
+	<svg style="display: none" viewBox="0 0 1 1">
+		<defs>
+			<g id="svgNameBorder">
+				<polygon points="0 0, 0 0.5, 0.02 0.1, 0.1 0" />
+				<polygon points="1 1, 1 0.5, 0.98 0.9, 0.9 1" />
+			</g>
+		</defs>
+	</svg>
+	<button id="btnReloadCSS" onclick="document.getElementById('lnkCSS').href += Math.random()">重新载入CSS</button>
+	<section id="sLoading">
+		<div class="centered">
+			<figure>正在载入资源，请稍候……</figure>
+		</div>
+	</section>
+	<section id="sIntro" style="display: none">
+		<div class="centered">
+			<figure class="intro-circle outer" data-child-centered>
+				<p>AILab Presents</p>
+				<p>Designed by Zhouhy</p>
+			</figure>
+		</div>
+		<div class="centered perspective">
+			<figure class="intro-circle inner" data-child-centered>
+				<p>AILab Presents</p>
+				<p>Designed by Zhouhy</p>
+			</figure>
+		</div>
+		<div class="centered">
+			<figure class="intro-line">
+				<figure class="intro-line-fill"></figure>
+				<div class="border t"></div>
+				<div class="border r"></div>
+				<div class="border b"></div>
+				<div class="border l"></div>
+				<div class="intro-title" data-text-shattered>
+					吃豆人
+				</div>
+			</figure>
+		</div>
+	</section>
+	<section id="sGameScene" style="display: none">
+		<div class="canvas-container push-left">
+			<figure class="letterbox top"></figure>
+			<figure class="letterbox bottom"></figure>
+			<canvas id="mainCanvas"></canvas>
+			<div id="lblFloatingInfo">...</div>
+			<div class="infobox-container">
+				<div class="misc">
+					<figure class="turnid value-wrap">
+						<span class="label">
+							<span class="icon-clock"></span>
+							回合
+						</span>
+						<span class="value">2</span>
+					</figure>
+					<figure class="alivecount value-wrap">
+						<span class="label">
+							<span class="icon-child"></span>
+							存活人数
+						</span>
+						<span class="value">3</span>
+					</figure>
+				</div>
+				<template id="tmpInfobox">
+					<div class="infobox">
+						<div class="infobox-content">
+							<p class="player-name-wrap">
+								<svg viewBox="0 0 1 1" preserveAspectRatio="none">
+									<use xlink:href="#svgNameBorder" />
+								</svg>
+								<span class="player-name">【玩家姓名】</span>
+							</p>
+							<figure class="strength value-wrap">
+								<span class="label">
+									<span class="icon-flash"></span>
+									力量
+								</span>
+								<span class="value">233</span>
+							</figure>
+							<figure class="rank value-wrap">
+								<span class="label">
+									<span class="icon-crown"></span>
+									排名
+								</span>
+								<span class="value">1</span>
+							</figure>
+						</div>
+					</div>
+
+				</template>
+			</div>
+			<figure class="screen-shot"><img /></figure>
+		</div>
+		<fieldset id="panSettings" class="push-left">
+			<div class="container">
+				<div class="row">
+					<label>FPS</label>
+					<span id="lblFPS">64</span>
+				</div>
+				<div class="row">
+					<label>抗锯齿</label>
+					<input type="checkbox" onchange="engine.antialiasing = this.checked" />
+				</div>
+				<div class="row">
+					<label>效果等级</label>
+					<label>
+						<input type="radio" name="graphics" value="1" checked onchange="engine.graphicsLevel = this.value" />
+						高
+					</label>
+					<label>
+						<input type="radio" name="graphics" value="0" onchange="engine.graphicsLevel = this.value" />
+						低
+					</label>
+				</div>
+				<div class="row">
+					<label><span class="icon-music"></span> 声音</label>
+					<input type="checkbox" onchange="engine.sound = this.checked" />
+				</div>
+				<div class="row">
+					<label><span class="icon-video"></span> 特技</label>
+					<input type="checkbox" onchange="engine.sound = this.checked" />
+				</div>
+			</div>
+			<a class="show" onclick="$('.push-left').toggleClass('active')"><span class="icon-cogs"></span> 设置</a>
+		</fieldset>
+		<div id="panControl"></div>
+	</section>
+	<link id="lnkCSS" href="app.min.css?" rel="stylesheet" />
+	<script src="es6-promise.min.js"></script>
+	<script src="greensocks/TweenMax.min.js"></script>
+	<script src="three.min.js"></script>
+	<script src="jquery-1.9.1.min.js"></script>
+	<script src="app.js"></script>
+</body>
+</html>

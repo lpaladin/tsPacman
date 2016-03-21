@@ -1,0 +1,812 @@
+﻿@import "_fonts";
+@import "_basic";
+
+#sIntro {
+	white-space: nowrap;
+	font-size: 2em;
+
+	.perspective {
+		-moz-perspective: 1000px;
+		-ms-perspective: 1000px;
+		-webkit-perspective: 1000px;
+		perspective: 1000px;
+	}
+
+	.intro-line {
+		display: none;
+		height: 10em;
+		position: relative;
+		border: 1px solid transparent;
+
+		.border {
+			background-color: white;
+			position: absolute;
+			left: -1px;
+			right: -1px;
+			top: -1px;
+			bottom: -1px;
+
+			&.l {
+				right: 100%;
+				-moz-transform-origin: bottom center;
+				-ms-transform-origin: bottom center;
+				-o-transform-origin: bottom center;
+				-webkit-transform-origin: bottom center;
+				transform-origin: bottom center;
+			}
+
+			&.r {
+				left: 100%;
+				-moz-transform-origin: top center;
+				-ms-transform-origin: top center;
+				-o-transform-origin: top center;
+				-webkit-transform-origin: top center;
+				transform-origin: top center;
+			}
+
+			&.t {
+				bottom: 100%;
+				-moz-transform-origin: center left;
+				-ms-transform-origin: center left;
+				-o-transform-origin: center left;
+				-webkit-transform-origin: center left;
+				transform-origin: center left;
+			}
+
+			&.b {
+				top: 100%;
+				-moz-transform-origin: center right;
+				-ms-transform-origin: center right;
+				-o-transform-origin: center right;
+				-webkit-transform-origin: center right;
+				transform-origin: center right;
+			}
+		}
+	}
+
+	.intro-line-fill {
+		background-color: white;
+		position: absolute;
+		top: 60%;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		-moz-transform-origin: center bottom;
+		-ms-transform-origin: center bottom;
+		-o-transform-origin: center bottom;
+		-webkit-transform-origin: center bottom;
+		transform-origin: center bottom;
+	}
+
+	.intro-title {
+		display: none;
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		-moz-transform: translate(-50%, -50%) scaleX(0.33);
+		-ms-transform: translate(-50%, -50%) scaleX(0.33);
+		-o-transform: translate(-50%, -50%) scaleX(0.33);
+		-webkit-transform: translate(-50%, -50%) scaleX(0.33);
+		transform: translate(-50%, -50%) scaleX(0.33);
+
+		> figure {
+			color: white;
+			@include super-shadow;
+			display: inline-block;
+			font-size: 5em;
+			margin: 0 0.5em;
+
+			> figure {
+				position: absolute;
+				left: 0;
+				right: 0;
+				top: 0;
+				z-index: -1;
+			}
+		}
+	}
+
+	.intro-circle.outer {
+		position: relative;
+		border-radius: 50% 50%;
+		overflow: hidden;
+		color: black;
+		background-color: white;
+		height: 0;
+		width: 0;
+		// box-shadow: black 0 0 0.5em;
+	}
+
+	.intro-circle.inner {
+		position: relative;
+		border-radius: 50% 50%;
+		overflow: hidden;
+		background-color: black;
+		color: white;
+		height: 0;
+		width: 0;
+		// box-shadow: white 0 0 0.5em inset;
+	}
+}
+
+#sGameScene {
+	background-color: white;
+	font-family: 'Microsoft YaHei', SimHei;
+
+	.push-left {
+		-moz-transition: transform ease 0.3s;
+		-o-transition: transform ease 0.3s;
+		-webkit-transition: transform ease 0.3s;
+		transition: transform ease 0.3s;
+
+		&.active {
+			-moz-transform: translateX(-16em);
+			-ms-transform: translateX(-16em);
+			-o-transform: translateX(-16em);
+			-webkit-transform: translateX(-16em);
+			transform: translateX(-16em);
+		}
+	}
+
+	.canvas-container {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+
+		.letterbox.top, .letterbox.bottom {
+			position: absolute;
+			content: "";
+			left: 0;
+			right: 0;
+			background-color: black;
+			-moz-transition: transform ease 0.3s;
+			-o-transition: transform ease 0.3s;
+			-webkit-transition: transform ease 0.3s;
+			transition: transform ease 0.3s;
+			z-index: 8;
+		}
+
+		.letterbox.top {
+			top: -10%;
+			bottom: 100%;
+			-moz-transform-origin: center top;
+			-ms-transform-origin: center top;
+			-o-transform-origin: center top;
+			-webkit-transform-origin: center top;
+			transform-origin: center top;
+		}
+
+		.letterbox.bottom {
+			top: 100%;
+			bottom: -10%;
+			-moz-transform-origin: center bottom;
+			-ms-transform-origin: center bottom;
+			-o-transform-origin: center bottom;
+			-webkit-transform-origin: center bottom;
+			transform-origin: center bottom;
+		}
+
+		.screen-shot {
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			position: absolute;
+			border: 2px solid gray;
+			border-radius: 5px;
+			z-index: 11;
+			display: none;
+
+			> img {
+				background-color: white;
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			@extend %card-effect;
+		}
+
+		.spark {
+			background: radial-gradient(white 80%, transparent);
+			border-radius: 50% 50%;
+		}
+
+		&.cinematic {
+			.letterbox {
+				-moz-transform: scaleY(2);
+				-ms-transform: scaleY(2);
+				-o-transform: scaleY(2);
+				-webkit-transform: scaleY(2);
+				transform: scaleY(2);
+			}
+
+			.infobox-container {
+				-moz-transform: translateX(-100%);
+				-ms-transform: translateX(-100%);
+				-o-transform: translateX(-100%);
+				-webkit-transform: translateX(-100%);
+				transform: translateX(-100%);
+			}
+		}
+	}
+
+	#mainCanvas {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		-ms-filter: invert(0);
+		-moz-filter: invert(0);
+		-webkit-filter: invert(0);
+		filter: invert(0);
+		-moz-transition: filter linear 0.3s, -webkit-filter linear 0.3s, -moz-filter linear 0.3s, -ms-filter linear 0.3s;
+		-o-transition: filter linear 0.3s, -webkit-filter linear 0.3s, -moz-filter linear 0.3s, -ms-filter linear 0.3s;
+		-webkit-transition: filter linear 0.3s, -webkit-filter linear 0.3s, -moz-filter linear 0.3s, -ms-filter linear 0.3s;
+		transition: filter linear 0.3s, -webkit-filter linear 0.3s, -moz-filter linear 0.3s, -ms-filter linear 0.3s;
+
+		&.reverse {
+			-ms-filter: invert(100%);
+			-moz-filter: invert(100%);
+			-webkit-filter: invert(100%);
+			filter: invert(100%);
+		}
+	}
+
+	#lblFloatingInfo {
+		position: absolute;
+		top: 0;
+		left: 0;
+		background-color: white;
+		border: 2px solid gray;
+		border-radius: 5px;
+		padding: 0.5em;
+		box-shadow: gray 0 0 5px;
+		-moz-transition: transform ease 0.2s;
+		-o-transition: transform ease 0.2s;
+		-webkit-transition: transform ease 0.2s;
+		transition: transform ease 0.2s;
+		pointer-events: none;
+		opacity: 0.7;
+	}
+
+	#panSettings {
+		position: absolute;
+		top: 0;
+		left: 100%;
+		right: -16em;
+		bottom: 0;
+		overflow: visible;
+		border: none;
+		border-left: 2px solid $black;
+		box-shadow: $black 2px 2px 20px inset;
+		padding: 0;
+		background: url(textured_paper.png);
+
+		> .container {
+			margin: 0;
+			padding: 1em;
+			-moz-perspective: 500px;
+			-ms-perspective: 500px;
+			-webkit-perspective: 500px;
+			perspective: 500px;
+			-webkit-transform-style: preserve-3d;
+			transform-style: preserve-3d;
+			visibility: hidden;
+		}
+
+		input[type=checkbox] {
+			-webkit-appearance: none;
+			-moz-appearance: none;
+			outline: none;
+			position: relative;
+			display: inline-block;
+			margin: 0;
+			height: 1.4em;
+			width: 1.4em;
+			border: 2px solid darken($mid-blue, 10%);
+			border-radius: 3px;
+			vertical-align: middle;
+			background-color: $mid-blue;
+			-moz-transform: translateZ(1.2em);
+			-ms-transform: translateZ(1.2em);
+			-o-transform: translateZ(1.2em);
+			-webkit-transform: translateZ(1.2em);
+			transform: translateZ(1.2em);
+			-moz-transition: transform ease 0.1s;
+			-o-transition: transform ease 0.1s;
+			-webkit-transition: transform ease 0.1s;
+			transition: transform ease 0.1s;
+
+			&:hover {
+				background-color: $blue;
+				-moz-transform: scale(1.1) translateZ(1.5em);
+				-ms-transform: scale(1.1) translateZ(1.5em);
+				-o-transform: scale(1.1) translateZ(1.5em);
+				-webkit-transform: scale(1.1) translateZ(1.5em);
+				transform: scale(1.1) translateZ(1.5em);
+			}
+
+			&:active {
+				background-color: $dark-blue;
+				-moz-transform: scale(0.9) translateZ(1em);
+				-ms-transform: scale(0.9) translateZ(1em);
+				-o-transform: scale(0.9) translateZ(1em);
+				-webkit-transform: scale(0.9) translateZ(1em);
+				transform: scale(0.9) translateZ(1em);
+			}
+
+			&:before {
+				position: absolute;
+				content: "";
+				top: 2px;
+				left: 2px;
+				right: 2px;
+				bottom: 2px;
+				border-radius: 2px;
+				background-color: $dark-blue;
+				-moz-transform: scale(0);
+				-ms-transform: scale(0);
+				-o-transform: scale(0);
+				-webkit-transform: scale(0);
+				transform: scale(0);
+				-moz-transition: transform ease 0.1s;
+				-o-transition: transform ease 0.1s;
+				-webkit-transition: transform ease 0.1s;
+				transition: transform ease 0.1s;
+			}
+
+			&:checked:before {
+				-moz-transform: scale(1);
+				-ms-transform: scale(1);
+				-o-transform: scale(1);
+				-webkit-transform: scale(1);
+				transform: scale(1);
+			}
+		}
+
+		input[type=radio] {
+			-webkit-appearance: none;
+			-moz-appearance: none;
+			outline: none;
+			position: relative;
+			display: inline-block;
+			margin: 0;
+			height: 1.4em;
+			width: 1.4em;
+			border: 2px solid darken($mid-blue, 10%);
+			border-radius: 50%;
+			vertical-align: middle;
+			background-color: $mid-blue;
+			-moz-transition: transform ease 0.1s;
+			-o-transition: transform ease 0.1s;
+			-webkit-transition: transform ease 0.1s;
+			transition: transform ease 0.1s;
+
+			&:hover {
+				background-color: $blue;
+				-moz-transform: translateZ(0.5em);
+				-ms-transform: translateZ(0.5em);
+				-o-transform: translateZ(0.5em);
+				-webkit-transform: translateZ(0.5em);
+				transform: translateZ(0.5em);
+			}
+
+			&:active {
+				background-color: $dark-blue;
+				-moz-transform: scale(0.9);
+				-ms-transform: scale(0.9);
+				-o-transform: scale(0.9);
+				-webkit-transform: scale(0.9);
+				transform: scale(0.9);
+			}
+
+			&:before {
+				position: absolute;
+				content: "";
+				top: 2px;
+				left: 2px;
+				right: 2px;
+				bottom: 2px;
+				border-radius: 50%;
+				background-color: $dark-blue;
+				-moz-transform: scale(0);
+				-ms-transform: scale(0);
+				-o-transform: scale(0);
+				-webkit-transform: scale(0);
+				transform: scale(0);
+				-moz-transition: transform ease 0.1s;
+				-o-transition: transform ease 0.1s;
+				-webkit-transition: transform ease 0.1s;
+				transition: transform ease 0.1s;
+			}
+
+			&:checked:before {
+				-moz-transform: scale(1);
+				-ms-transform: scale(1);
+				-o-transform: scale(1);
+				-webkit-transform: scale(1);
+				transform: scale(1);
+			}
+		}
+
+		.row {
+			-webkit-transform-style: preserve-3d;
+			transform-style: preserve-3d;
+			margin-top: 0.5em;
+			margin-bottom: 1em;
+			-moz-transition: transform ease 0.1s;
+			-o-transition: transform ease 0.1s;
+			-webkit-transition: transform ease 0.1s;
+			transition: transform ease 0.1s;
+
+			> label:first-child {
+				width: 4em;
+				margin-right: 1em;
+				display: inline-block;
+				border: 1px solid $black;
+				background-color: $dark-blue;
+				text-shadow: 0 0 5px black;
+				padding: 2px 5px;
+				border-radius: 5px;
+				border-bottom-right-radius: 0;
+				text-align: center;
+				color: white;
+				position: relative;
+				-moz-transform: translateZ(0.5em);
+				-ms-transform: translateZ(0.5em);
+				-o-transform: translateZ(0.5em);
+				-webkit-transform: translateZ(0.5em);
+				transform: translateZ(0.5em);
+				overflow: visible;
+
+				&:before {
+					position: absolute;
+					content: "";
+					top: 100%;
+					left: 5px;
+					width: 13em;
+					height: 1px;
+					background: linear-gradient(to right, $black, transparent);
+				}
+			}
+
+			> label:not(:first-child) {
+				font-weight: bold;
+				text-shadow: 0 0 2px black, 0 0 2px black;
+				color: white;
+				display: inline-block;
+				-moz-transform: translateZ(0.5em);
+				-ms-transform: translateZ(0.5em);
+				-o-transform: translateZ(0.5em);
+				-webkit-transform: translateZ(0.5em);
+				transform: translateZ(0.5em);
+				margin-right: 1em;
+
+				&:hover {
+					-moz-transform: scale(1.1) translateZ(0.5em);
+					-ms-transform: scale(1.1) translateZ(0.5em);
+					-o-transform: scale(1.1) translateZ(0.5em);
+					-webkit-transform: scale(1.1) translateZ(0.5em);
+					transform: scale(1.1) translateZ(0.5em);
+				}
+			}
+
+			> span {
+				display: inline-block;
+				color: yellow;
+				font-weight: bold;
+				text-shadow: 0 0 5px black;
+				-moz-transform: translateZ(1em);
+				-ms-transform: translateZ(1em);
+				-o-transform: translateZ(1em);
+				-webkit-transform: translateZ(1em);
+				transform: translateZ(1em);
+			}
+
+			&:hover {
+				-moz-transform: scale(1.1) translateZ(1em);
+				-ms-transform: scale(1.1) translateZ(1em);
+				-o-transform: scale(1.1) translateZ(1em);
+				-webkit-transform: scale(1.1) translateZ(1em);
+				transform: scale(1.1) translateZ(1em);
+			}
+		}
+
+		a.show {
+			display: inline-block;
+			position: absolute;
+			top: 0;
+			right: 100%;
+			padding: 0.5em;
+			margin-right: 4px;
+			text-align: right;
+			vertical-align: top;
+			color: $black;
+			font-weight: bold;
+			white-space: nowrap;
+			-moz-transform-origin: right top;
+			-ms-transform-origin: right top;
+			-o-transform-origin: right top;
+			-webkit-transform-origin: right top;
+			transform-origin: right top;
+			-moz-transition: transform ease 0.1s;
+			-o-transition: transform ease 0.1s;
+			-webkit-transition: transform ease 0.1s;
+			transition: transform ease 0.1s;
+
+			&:hover {
+				-moz-transform: scale(1.1);
+				-ms-transform: scale(1.1);
+				-o-transform: scale(1.1);
+				-webkit-transform: scale(1.1);
+				transform: scale(1.1);
+			}
+
+			&:active {
+				-moz-transform: scale(0.9);
+				-ms-transform: scale(0.9);
+				-o-transform: scale(0.9);
+				-webkit-transform: scale(0.9);
+				transform: scale(0.9);
+			}
+		}
+
+		&.active {
+			a.show {
+				text-shadow: 0 0 5px #48a2eb;
+				height: 100vh;
+				width: 100vw;
+			}
+
+			.container {
+				visibility: visible;
+			}
+		}
+	}
+}
+
+.pacman {
+	border-radius: 50%;
+	border: 2em solid yellow;
+	border-right: 2em solid transparent;
+}
+
+.value-wrap {
+	display: inline-block;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+	border-radius: 10em; // 由于圆角弧线不能互相覆盖，这里指定一个巨大的值就能实现四个角都是尽可能大的圆形（而非椭圆）弧线
+
+	.label {
+		position: relative;
+		padding-left: 2em;
+		color: black;
+		text-shadow: -1px 1px 0 white, 1px -1px 0 white, 1px 1px white, -1px -1px 0 white;
+
+		> span {
+			position: absolute;
+			top: 40%;
+			left: 0;
+			-moz-transform: translateY(-50%);
+			-ms-transform: translateY(-50%);
+			-o-transform: translateY(-50%);
+			-webkit-transform: translateY(-50%);
+			transform: translateY(-50%);
+			font-size: 2em;
+			text-shadow: -1px 1px 0 white, 1px -1px 0 white, 1px 1px white, -1px -1px 0 white;
+		}
+
+		> span:before {
+			margin: 0;
+		}
+	}
+
+	.value {
+		text-shadow: -1px 1px 0 black, 1px -1px 0 black, 1px 1px black, -1px -1px 0 black;
+		border-radius: 10em;
+		display: inline-block;
+		font-family: STZhongsong;
+		color: white;
+		font-weight: bold;
+		padding: 0 1em;
+		margin: 2px;
+	}
+
+	// 对不同类型数值的样式
+
+	&.turnid {
+		background-image: linear-gradient(to bottom, $blue, $light-blue);
+
+		.label > span {
+			color: $mid-blue;
+		}
+
+		.value {
+			background-image: linear-gradient(-45deg, $light-blue, white);
+		}
+	}
+
+	&.alivecount {
+		background-image: linear-gradient(to bottom, orange, #f0b953);
+
+		.label > span {
+			color: orange;
+		}
+
+		.value {
+			background-image: linear-gradient(-45deg, orange, white);
+		}
+	}
+
+	&.rank {
+		background-image: linear-gradient(to bottom, #ff1a1a, #ff7272);
+		box-shadow: #999 0 -3px 5px inset;
+
+		.label > span {
+			color: red;
+		}
+
+		.value {
+			background-image: linear-gradient(-45deg, #ff7272, #eee);
+			box-shadow: #999 0 3px 5px inset;
+		}
+	}
+
+	&.strength {
+		background-image: linear-gradient(to bottom, #d6d758, #d5d686);
+		box-shadow: #aaa 0 -3px 5px inset;
+
+		.label > span {
+			color: gold;
+		}
+
+		.value {
+			background-image: linear-gradient(-45deg, #dddf88, #eee);
+			box-shadow: #aaa 0 3px 5px inset;
+		}
+	}
+}
+
+.infobox-container {
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	-moz-transition: transform ease 0.3s;
+	-o-transition: transform ease 0.3s;
+	-webkit-transition: transform ease 0.3s;
+	transition: transform ease 0.3s;
+
+	> .misc {
+		margin: 1em;
+	}
+
+	.infobox {
+		position: relative;
+		margin: 1em;
+		opacity: 0.8;
+		-moz-box-sizing: border-box;
+		-webkit-box-sizing: border-box;
+		box-sizing: border-box;
+		border-radius: 0.5em;
+		-moz-transition: transform ease 0.3s, opacity ease 0.3s;
+		-o-transition: transform ease 0.3s, opacity ease 0.3s;
+		-webkit-transition: transform ease 0.3s, opacity ease 0.3s;
+		transition: transform ease 0.3s, opacity ease 0.3s;
+		white-space: nowrap;
+		@extend %card-effect;
+
+		&:last-child {
+			border-bottom-width: 2px;
+		}
+
+		&:hover {
+			opacity: 1;
+			-moz-transform: translateX(1em);
+			-ms-transform: translateX(1em);
+			-o-transform: translateX(1em);
+			-webkit-transform: translateX(1em);
+			transform: translateX(1em);
+		}
+
+		.infobox-content {
+			position: relative;
+			padding: 1em;
+			border-radius: 0.5em;
+			box-shadow: #ccc 0 -3px 5px inset;
+			background-image: linear-gradient(45deg, #d5d5d5, white);
+		}
+
+		.player-name-wrap {
+			position: relative;
+			overflow: hidden;
+			padding: 0.3em;
+			border-radius: 0.2em;
+			margin-bottom: 0.5em;
+			text-align: center;
+
+			> svg {
+				position: absolute;
+				top: 0;
+				width: 100%;
+				height: 100%;
+				left: 0;
+				right: 0;
+				bottom: 0;
+			}
+
+			.player-name {
+				color: white;
+				font-weight: bold;
+				text-shadow: -1px 1px 0 black, 1px -1px 0 black, 1px 1px black, -1px -1px 0 black;
+			}
+		}
+
+		&.p1 {
+			.player-name-wrap {
+				background-color: rgba(222, 66, 66, 0.25);
+
+				> svg use {
+					fill: red;
+				}
+			}
+		}
+
+		&.p2 {
+			.player-name-wrap {
+				background-color: rgba(66, 222, 66, 0.25);
+
+				> svg use {
+					fill: green;
+				}
+			}
+		}
+
+		&.p3 {
+			.player-name-wrap {
+				background-color: rgba(66, 105, 222, 0.25);
+
+				> svg use {
+					fill: blue;
+				}
+			}
+		}
+
+		&.p4 {
+			.player-name-wrap {
+				background-color: rgba(221, 222, 66, 0.25);
+
+				> svg use {
+					fill: yellow;
+				}
+			}
+		}
+	}
+}
+
+@include keyframes(scaleYoyo) {
+	from {
+		-moz-transform: scale(1.1);
+		-ms-transform: scale(1.1);
+		-o-transform: scale(1.1);
+		-webkit-transform: scale(1.1);
+		transform: scale(1.1);
+	}
+
+	to {
+		-moz-transform: scale(0.9);
+		-ms-transform: scale(0.9);
+		-o-transform: scale(0.9);
+		-webkit-transform: scale(0.9);
+		transform: scale(0.9);
+	}
+}
