@@ -422,16 +422,6 @@ var PlayerStatusChange;
     PlayerStatusChange[PlayerStatusChange["error"] = 16] = "error";
 })(PlayerStatusChange || (PlayerStatusChange = {}));
 ;
-var GameStatus;
-(function (GameStatus) {
-    GameStatus[GameStatus["intro"] = 0] = "intro";
-    GameStatus[GameStatus["init"] = 1] = "init";
-    GameStatus[GameStatus["animating"] = 2] = "animating";
-    GameStatus[GameStatus["paused"] = 3] = "paused";
-    GameStatus[GameStatus["waiting"] = 4] = "waiting";
-    GameStatus[GameStatus["requesting"] = 5] = "requesting";
-})(GameStatus || (GameStatus = {}));
-;
 var CellStaticType;
 (function (CellStaticType) {
     CellStaticType[CellStaticType["emptyWall"] = 0] = "emptyWall";
@@ -596,6 +586,7 @@ var GameFieldBaseLogic = (function () {
         }
     }
     GameFieldBaseLogic.prototype.applyChange = function (log) {
+        console.log("parsing log", log);
         var tl = new TL();
         var i;
         var _;
@@ -759,19 +750,23 @@ var GameField = (function (_super) {
         configurable: true
     });
     GameField.prototype.strengthModification = function (player, delta) {
+        var _this = this;
         var tl = new TL();
         var obj = $info.infobox["p" + player.playerID].strength;
         var dobj = $strengthDeltas[player.playerID];
         var sign = delta > 0 ? "+" : ((delta *= -1), "-");
         tl.add(biDirConstSet(dobj[0], "innerHTML", sign + delta));
-        var s = this.strengthOffsets[this.oldOrder.indexOf(player.playerID)], e = engine.projectTo2D(this.wrapXY(player.fieldCoord, { z: 1 }));
+        var s = this.strengthOffsets[this.oldOrder.indexOf(player.playerID)];
         if (sign == "-") {
             tl.set(dobj, { className: "+=dec" });
         }
         else {
             tl.set(dobj, { className: "-=dec" });
         }
-        tl.fromTo(dobj, 0.1, { autoAlpha: 0, scale: 0, x: e.x, y: e.y }, { autoAlpha: 1, scale: 1, immediateRender: false, y: "-=20px" });
+        tl.call(function () {
+            return TweenMax.set(dobj, _this.engine.projectTo2D(_this.wrapXY(player.lazyvars.fieldCoord, { z: 1 })));
+        });
+        tl.fromTo(dobj, 0.1, { autoAlpha: 0, scale: 0 }, { autoAlpha: 1, scale: 1, immediateRender: false, y: "-=20px" });
         tl.to(dobj, 0.5, { x: s.left, ease: Power2.easeIn }, 0.601);
         tl.to(dobj, 0.5, { y: s.top, ease: Power2.easeOut }, 0.601);
         tl.to(dobj, 0.1, { autoAlpha: 0 });
@@ -826,7 +821,7 @@ var GameField = (function (_super) {
         tl.to(player.position, 0.5, { z: 3 }, "-=0.5");
         tl.to(player.scale, 0.5, { x: 3, y: 3, z: 3 }, "-=0.5");
         tl.to(player.material, 0.25, { opacity: 0.5 }, "-=0.25");
-        tl.add(engine.shutterAndDropScreenShot(player.playerID, this.infoOffsets[this.oldOrder.indexOf(player.playerID)], reasonStr[reason]));
+        tl.add(this.engine.shutterAndDropScreenShot(player.playerID, this.infoOffsets[this.oldOrder.indexOf(player.playerID)], reasonStr[reason]));
         tl.to(player.material, 0.25, { opacity: 0 });
         tl.add(biDirConstSet(player, "visible", false));
         return tl;
@@ -860,7 +855,7 @@ var GameField = (function (_super) {
     };
     Object.defineProperty(GameField.prototype, "updateInfoTrigger", {
         get: function () { return; },
-        set: function (v) { engine.updateActiveObjInfo(); return; },
+        set: function (v) { this.engine.updateActiveObjInfo(); return; },
         enumerable: true,
         configurable: true
     });
@@ -907,10 +902,10 @@ var GameField = (function (_super) {
     GameField.prototype.focusOn = function (camera, v, slowMo) {
         if (slowMo === void 0) { slowMo = false; }
         var tl = new TL();
-        tl.add(biDirConstSet(engine, "cinematic", true));
+        tl.add(biDirConstSet(this.engine, "cinematic", true));
         tl.to(camera.position, 1, this.wrapXY(v, { z: 2, ease: Power4.easeOut, yoyo: true, repeat: 1 }));
         tl.to(camera.rotation, 1, { x: 0, y: 0, z: 0, ease: Power4.easeOut, yoyo: true, repeat: 1 }, 0);
-        tl.add(biDirConstSet(engine, "cinematic", false));
+        tl.add(biDirConstSet(this.engine, "cinematic", false));
         return tl;
     };
     GameField.prototype.generateFruitsFromGenerator = function (generator) {
@@ -1091,12 +1086,12 @@ var $ui = {
 };
 var $strengthDeltas = [];
 var Engine = (function () {
-    function Engine() {
+    function Engine(finishCallback) {
         var _this = this;
         this.fullTL = new TL({ smoothChildTiming: true });
         // 状态
         this._cinematic = false;
-        this.gameStatus = GameStatus.intro;
+        this.initialized = false;
         // 参数
         this.wallThickness = 0.25;
         // THREE.js 场景物件
@@ -1115,77 +1110,127 @@ var Engine = (function () {
         this.mouseDownFirst = false;
         //return;
         var initdata;
-        try {
-            initdata = JSON.parse(infoProvider.getMatchInitData());
-        }
-        catch (ex) {
-            initdata = {};
-        }
-        var names;
-        try {
-            names = infoProvider.getPlayerNames().map(function (o) { return o.name; }) || [];
-        }
-        catch (ex) {
-            names = [];
-        }
-        this.gameField = new GameField(this, initdata, names);
-        this.dispWidth = $ui.sGameScene.width();
-        this.dispHeight = $ui.sGameScene.height();
-        this.fieldMaxWidth = this.gameField.width;
-        this.fieldMaxHeight = this.gameField.height;
-        /**
-         *    ^ y(top, -bottom)
-         *    |
-         *    |  场
-         *    |______>
-         *   /      x(right, -left)
-         *  /
-         * L z(back, -front)
-         */
-        this.scene = new PScene();
-        // 光照
-        this.lights.sky = new THREE.HemisphereLight(0xFFFFFF, 0xAAAAAA, 0.3);
-        this.lights.sky.position.z = -1;
-        this.lights.sky.position.y = 0;
-        this.lights.point = new THREE.PointLight(0xFFFFFF, 0.2);
-        this.lights.point.position.z = 5;
-        this.lights.top = new THREE.DirectionalLight(0xFFFFFF, 0.3);
-        this.lights.top.position.y = 1;
-        this.lights.top.position.z = 1;
-        this.lights.right = new THREE.DirectionalLight(0xFFFFFF, 0.4);
-        this.lights.right.position.x = 1;
-        this.lights.right.position.z = 1;
-        this.lights.bottom = new THREE.DirectionalLight(0xFFFFFF, 0.2);
-        this.lights.bottom.position.y = -1;
-        this.lights.bottom.position.z = 1;
-        this.lights.left = new THREE.DirectionalLight(0xFFFFFF, 0.1);
-        this.lights.left.position.x = -1;
-        this.lights.left.position.z = 1;
-        for (var name_1 in this.lights)
-            this.scene.add(this.lights[name_1]);
-        this.field = new THREE.Mesh(this.gameField.createFloor(this.wallThickness), new THREE.MeshLambertMaterial({ color: 0xFFFFFF, map: this.gameField.floorTexture }));
-        this.wall = new THREE.Mesh(this.gameField.createGeometry(this.wallThickness, 1), new THREE.MeshLambertMaterial({ color: 0xCFF09E }));
-        this.edgeshelper = new THREE.EdgesHelper(this.wall, 0x79BD9A);
-        this.scene.add(this.edgeshelper);
-        this.scene.add(this.wall);
-        this.scene.add(this.field);
-        this.gameField.initializeProps(this.scene);
-        // 让 Three.JS 使用 Greensocks 的渲染循环
-        TweenMax.ticker.addEventListener('tick', this.renderTick.bind(this));
-        $ui.mainCanvas
-            .mousemove(function (event) {
-            _this.mouseCoord.x = (event.clientX / _this.dispWidth) * 2 - 1;
-            _this.mouseCoord.y = -(event.clientY / _this.dispHeight) * 2 + 1;
-        })
-            .mousedown(function () { return (_this.mouseDown = true, _this.mouseDownFirst = true); })
-            .mouseup(function () { return _this.mouseDown = false; })
-            .on('wheel', function (event) { return TweenMax.to(_this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }); });
-        this.antialiasing = false;
-        infoProvider.setNewLogCallback(function (display) { return _this.fullTL.add(_this.gameField.applyChange(display)); });
-        infoProvider.setReadFullLogCallback(function (log) {
-            if (log && log['output'] && log['output'].display)
-                _this.fullTL.add(_this.gameField.applyChange(log['output'].display));
-        });
+        // 切勿用Promise……Promise的then的调用不是和resolve同步的……
+        var retrieveExistingLogs = function (next) {
+            if (infoProvider.isLive()) {
+                infoProvider.setReadHistoryCallback(function (displays) { return (initdata = displays[0], next(displays.slice(1))); });
+                infoProvider.setNewLogCallback(function (display) { return (initdata = display, next([])); });
+            }
+            else {
+                var list = infoProvider.getLogList();
+                initdata = list[0].output.display;
+                var logs = [];
+                for (var i = 2; i < list.length; i += 2)
+                    if (list[i] && list[i]["output"] && list[i]["output"]["display"])
+                        logs.push(list[i]["output"]["display"]);
+                next(logs);
+            }
+            infoProvider.notifyInitComplete();
+        };
+        var initAndParseLogs = function (logs) {
+            var names;
+            try {
+                names = infoProvider.getPlayerNames().map(function (o) { return o.name; }) || [];
+            }
+            catch (ex) {
+                names = [];
+            }
+            _this.gameField = new GameField(_this, initdata, names);
+            _this.dispWidth = $ui.sGameScene.width();
+            _this.dispHeight = $ui.sGameScene.height();
+            _this.fieldMaxWidth = _this.gameField.width;
+            _this.fieldMaxHeight = _this.gameField.height;
+            /**
+             *    ^ y(top, -bottom)
+             *    |
+             *    |  场
+             *    |______>
+             *   /      x(right, -left)
+             *  /
+             * L z(back, -front)
+             */
+            _this.scene = new PScene();
+            // 光照
+            _this.lights.sky = new THREE.HemisphereLight(0xFFFFFF, 0xAAAAAA, 0.3);
+            _this.lights.sky.position.z = -1;
+            _this.lights.sky.position.y = 0;
+            _this.lights.point = new THREE.PointLight(0xFFFFFF, 0.2);
+            _this.lights.point.position.z = 5;
+            _this.lights.top = new THREE.DirectionalLight(0xFFFFFF, 0.3);
+            _this.lights.top.position.y = 1;
+            _this.lights.top.position.z = 1;
+            _this.lights.right = new THREE.DirectionalLight(0xFFFFFF, 0.4);
+            _this.lights.right.position.x = 1;
+            _this.lights.right.position.z = 1;
+            _this.lights.bottom = new THREE.DirectionalLight(0xFFFFFF, 0.2);
+            _this.lights.bottom.position.y = -1;
+            _this.lights.bottom.position.z = 1;
+            _this.lights.left = new THREE.DirectionalLight(0xFFFFFF, 0.1);
+            _this.lights.left.position.x = -1;
+            _this.lights.left.position.z = 1;
+            for (var name_1 in _this.lights)
+                _this.scene.add(_this.lights[name_1]);
+            _this.field = new THREE.Mesh(_this.gameField.createFloor(_this.wallThickness), new THREE.MeshLambertMaterial({ color: 0xFFFFFF, map: _this.gameField.floorTexture }));
+            _this.wall = new THREE.Mesh(_this.gameField.createGeometry(_this.wallThickness, 1), new THREE.MeshLambertMaterial({ color: 0xCFF09E }));
+            _this.edgeshelper = new THREE.EdgesHelper(_this.wall, 0x79BD9A);
+            _this.scene.add(_this.edgeshelper);
+            _this.scene.add(_this.wall);
+            _this.scene.add(_this.field);
+            _this.gameField.initializeProps(_this.scene);
+            // 让 Three.JS 使用 Greensocks 的渲染循环
+            TweenMax.ticker.addEventListener('tick', _this.renderTick.bind(_this));
+            $ui.mainCanvas
+                .mousemove(function (event) {
+                _this.mouseCoord.x = (event.clientX / _this.dispWidth) * 2 - 1;
+                _this.mouseCoord.y = -(event.clientY / _this.dispHeight) * 2 + 1;
+            })
+                .mousedown(function () { return (_this.mouseDown = true, _this.mouseDownFirst = true); })
+                .mouseup(function () { return _this.mouseDown = false; })
+                .on('wheel', function (event) { return TweenMax.to(_this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }); });
+            var keyCode2dir = {
+                37: Direction.left,
+                38: Direction.up,
+                39: Direction.right,
+                40: Direction.down
+            };
+            $(window)
+                .resize(_this.resetRenderer.bind(_this))
+                .keydown(function (event) {
+                switch (event.keyCode) {
+                    case 13:
+                        _this.fullTL.paused(!_this.fullTL.paused());
+                        return;
+                    case 189:
+                        _this.fullTL.timeScale(_this.fullTL.timeScale() * 0.5);
+                        return;
+                    case 187:
+                        _this.fullTL.timeScale(_this.fullTL.timeScale() * 2);
+                        return;
+                    case 82:
+                        _this.fullTL.reversed(!_this.fullTL.reversed());
+                        return;
+                }
+                var dir = keyCode2dir[event.keyCode];
+                if (dir !== undefined) {
+                    if (_this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
+                        var move = { action: dir, tauntText: "" };
+                        infoProvider.notifyPlayerMove(move);
+                    }
+                }
+                else
+                    _this.fullTL.timeScale(_this.fullTL.timeScale() * 2);
+            });
+            _this.antialiasing = false;
+            var parseLog = function (display) { return _this.fullTL.add(_this.gameField.applyChange(display)); };
+            logs.forEach(parseLog);
+            infoProvider.setNewLogCallback(parseLog);
+            infoProvider.setNewRequestCallback(function (log) {
+                // 接受用户输入
+            });
+            _this.initialized = true;
+            finishCallback();
+        };
+        retrieveExistingLogs(initAndParseLogs);
     }
     Engine.prototype.renderTick = function () {
         if (!this.cinematic) {
@@ -1466,9 +1511,11 @@ $(window).load(function () {
                     break;
                 }
             var infobox = $(node).addClass("p" + i).hover(function (e) {
-                engine.selectedObj = engine.gameField.players[i];
+                if (engine && engine.initialized)
+                    engine.selectedObj = engine.gameField.players[i];
             }, function (e) {
-                engine.selectedObj = null;
+                if (engine && engine.initialized)
+                    engine.selectedObj = null;
             });
             templateContainer.append(infobox);
             $strengthDeltas[i] = $(".strength-delta.p" + i);
@@ -1605,12 +1652,12 @@ $(window).load(function () {
         tl.from(borders[0], 1, { scale: 0, ease: Linear.easeNone });
         tl.from(borders[1], 1, { scale: 0, ease: Power2.easeOut });
         tl.to(bkgRect.find(".intro-line-fill"), 3, { scaleY: "0" }, "-=3");
-        var p = new Promise(function (resolve) { return tl.call(resolve); });
         // 离场
         tl.call(function () { return ($ui.sGameScene.show(), bkgRect.css({ overflow: "hidden", borderColor: "white" })); });
         tl.to(bkgRect, 1, { width: 0, ease: Power2.easeIn });
         tl.to(bkgRect, 1, { scaleY: 2, y: "-100%", ease: Power2.easeOut });
         tl.to(bkgRect, 2, { y: "100%" });
+        var p = new Promise(function (resolve) { return tl.call(resolve); });
         tl.from($ui.sGameScene, 2, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=2");
         tl.call(function () { return ($ui.sIntro.hide(), infoProvider.notifyRequestResume()); });
         return p;
@@ -1639,46 +1686,18 @@ $(window).load(function () {
             var dx = (Math.max(event.clientX - settingOffset.left, 0) / settingWidth) * 2 - 1;
             TweenMax.set(settingContainer, { rotationY: dx * 15, z: "-1em" });
         });
-        engine = new Engine(); // 千万要在场景初始化好后再执行！
-        var keyCode2dir = {
-            37: Direction.left,
-            38: Direction.up,
-            39: Direction.right,
-            40: Direction.down
-        };
-        $(window)
-            .resize(engine.resetRenderer.bind(engine))
-            .keydown(function (event) {
-            switch (event.keyCode) {
-                case 13:
-                    engine.fullTL.paused(!engine.fullTL.paused());
-                    return;
-                case 189:
-                    engine.fullTL.timeScale(engine.fullTL.timeScale() * 0.5);
-                    return;
-                case 187:
-                    engine.fullTL.timeScale(engine.fullTL.timeScale() * 2);
-                    return;
-                case 82:
-                    engine.fullTL.reversed(!engine.fullTL.reversed());
-                    return;
-            }
-            var dir = keyCode2dir[event.keyCode];
-            if (dir !== undefined) {
-                if (engine.gameField.testMove(infoProvider.getPlayerID(), dir)) {
-                    var move = { action: dir, tauntText: "" };
-                    infoProvider.notifyPlayerMove(move);
-                }
-            }
-            else
-                engine.fullTL.timeScale(engine.fullTL.timeScale() * 2);
-        });
-        return;
+        return new Promise(function (r) { return engine = new Engine(r); }); // 千万要在场景初始化好后再执行！
     };
-    new Promise(function (r) { return (infoProvider.notifyInitComplete(), r()); })
+    var fFinalInitializations = function () {
+    };
+    new Promise(function (r) {
+        infoProvider.notifyFinishedLoading();
+        r();
+    })
         .then(fLoadExternalModels)
         .then(fBreakFourthWallAgain)
         .then(fCreateScene)
+        .then(fFinalInitializations)
         .catch(function (err) { return console.error(err); });
 });
 //# sourceMappingURL=app.js.map

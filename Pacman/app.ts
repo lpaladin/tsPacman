@@ -485,10 +485,6 @@ enum PlayerStatusChange {
 	error = 16
 };
 
-enum GameStatus {
-	intro, init, animating, paused, waiting, requesting
-};
-
 enum CellStaticType {
 	emptyWall = 0, // 其实不会用到
 	wallNorth = 1, // 北墙（纵坐标减少的方向）
@@ -661,6 +657,7 @@ abstract class GameFieldBaseLogic {
 	}
 
 	public applyChange(log: IDisplayLog): TL {
+		console.log("parsing log", log);
 		let tl = new TL();
 		let i: number;
 		let _: number;
@@ -851,8 +848,7 @@ class GameField extends GameFieldBaseLogic {
 		const dobj = $strengthDeltas[player.playerID];
 		const sign = delta > 0 ? "+" : ((delta *= -1), "-");
 		tl.add(biDirConstSet(dobj[0], "innerHTML", sign + delta));
-		const s = this.strengthOffsets[this.oldOrder.indexOf(player.playerID)],
-			e = engine.projectTo2D(this.wrapXY(player.fieldCoord, { z: 1 }) as any);
+		const s = this.strengthOffsets[this.oldOrder.indexOf(player.playerID)];
 		if (sign == "-") {
 			tl.set(dobj, { className: "+=dec" });
 			//tl.fromTo(dobj, 0.1, { autoAlpha: 0, scale: 0, x: s.left, y: s.top },
@@ -862,7 +858,10 @@ class GameField extends GameFieldBaseLogic {
 		} else {
 			tl.set(dobj, { className: "-=dec" });
 		}
-		tl.fromTo(dobj, 0.1, { autoAlpha: 0, scale: 0, x: e.x, y: e.y },
+		tl.call(() =>
+			TweenMax.set(dobj, this.engine.projectTo2D(this.wrapXY(player.lazyvars.fieldCoord, { z: 1 }) as any))
+		);
+		tl.fromTo(dobj, 0.1, { autoAlpha: 0, scale: 0 },
 			{ autoAlpha: 1, scale: 1, immediateRender: false, y: "-=20px" });
 		tl.to(dobj, 0.5, { x: s.left, ease: Power2.easeIn }, 0.601);
 		tl.to(dobj, 0.5, { y: s.top, ease: Power2.easeOut }, 0.601);
@@ -923,7 +922,7 @@ class GameField extends GameFieldBaseLogic {
 		tl.to(player.position, 0.5, { z: 3 }, "-=0.5");
 		tl.to(player.scale, 0.5, { x: 3, y: 3, z: 3 }, "-=0.5");
 		tl.to(player.material, 0.25, { opacity: 0.5 }, "-=0.25");
-		tl.add(engine.shutterAndDropScreenShot(player.playerID,
+		tl.add(this.engine.shutterAndDropScreenShot(player.playerID,
 			this.infoOffsets[this.oldOrder.indexOf(player.playerID)], reasonStr[reason]));
 		tl.to(player.material, 0.25, { opacity: 0 });
 		tl.add(biDirConstSet(player, "visible", false));
@@ -959,7 +958,7 @@ class GameField extends GameFieldBaseLogic {
 	}
 
 	private get updateInfoTrigger() { return; }
-	private set updateInfoTrigger(v) { engine.updateActiveObjInfo(); return; }
+	private set updateInfoTrigger(v) { this.engine.updateActiveObjInfo(); return; }
 
 	protected playerMove(player: Player, dir: Direction) {
 		if (this.testMove(player.playerID, dir)) {
@@ -1008,10 +1007,10 @@ class GameField extends GameFieldBaseLogic {
 
 	public focusOn(camera: THREE.Camera, v: Vector2D<any>, slowMo: boolean = false) {
 		let tl = new TL();
-		tl.add(biDirConstSet(engine, "cinematic", true));
+		tl.add(biDirConstSet(this.engine, "cinematic", true));
 		tl.to(camera.position, 1, this.wrapXY(v, { z: 2, ease: Power4.easeOut, yoyo: true, repeat: 1 }));
 		tl.to(camera.rotation, 1, { x: 0, y: 0, z: 0, ease: Power4.easeOut, yoyo: true, repeat: 1 }, 0);
-		tl.add(biDirConstSet(engine, "cinematic", false));
+		tl.add(biDirConstSet(this.engine, "cinematic", false));
 		return tl;
 	}
 
@@ -1248,7 +1247,7 @@ class Engine {
 
 	// 状态
 	private _cinematic = false;
-	private gameStatus = GameStatus.intro;
+	public initialized = false;
 
 	// 参数
 	private wallThickness = 0.25;
@@ -1284,96 +1283,154 @@ class Engine {
 	private _selectedObj: FieldObject;
 	private _selectedTween: TweenMax[];
 
-	constructor() {
+	constructor(finishCallback: () => void) {
 		//return;
 		let initdata: IInitdata;
-		try {
-			initdata = JSON.parse(infoProvider.getMatchInitData());
-		} catch (ex) {
-			initdata = <any>{};
-		}
-		let names: string[];
-		try {
-			names = infoProvider.getPlayerNames().map(o => o.name) || [];
-		} catch (ex) {
-			names = []
-		}
 
-		this.gameField = new GameField(this, initdata, names);
+		// 切勿用Promise……Promise的then的调用不是和resolve同步的……
+		let retrieveExistingLogs = (next: (logs: IDisplayLog[]) => void) => {
+			if (infoProvider.isLive()) {
+				infoProvider.setReadHistoryCallback(displays => (initdata = displays[0], next(displays.slice(1))));
+				infoProvider.setNewLogCallback(display => (initdata = display, next([])));
+			} else {
+				let list = infoProvider.getLogList();
+				initdata = (list[0] as JudgeResultLog).output.display;
+				let logs: IDisplayLog[] = [];
+				for (let i = 2; i < list.length; i += 2)
+					if (list[i] && list[i]["output"] && list[i]["output"]["display"])
+						logs.push(list[i]["output"]["display"]);
+				next(logs);
+			}
+			infoProvider.notifyInitComplete();
+		};
 
-		this.dispWidth = $ui.sGameScene.width();
-		this.dispHeight = $ui.sGameScene.height();
-		this.fieldMaxWidth = this.gameField.width;
-		this.fieldMaxHeight = this.gameField.height;
+		let initAndParseLogs = (logs: IDisplayLog[]) => {
+			let names: string[];
+			try {
+				names = infoProvider.getPlayerNames().map(o => o.name) || [];
+			} catch (ex) {
+				names = [];
+			}
 
-		/**
-		 *    ^ y(top, -bottom)
-		 *    |
-		 *    |  场
-		 *    |______>
-		 *   /      x(right, -left)
-		 *  /
-		 * L z(back, -front)
-		 */
+			this.gameField = new GameField(this, initdata, names);
 
-		this.scene = new PScene();
+			this.dispWidth = $ui.sGameScene.width();
+			this.dispHeight = $ui.sGameScene.height();
+			this.fieldMaxWidth = this.gameField.width;
+			this.fieldMaxHeight = this.gameField.height;
 
-		// 光照
-		this.lights.sky = new THREE.HemisphereLight(0xFFFFFF, 0xAAAAAA, 0.3);
-		this.lights.sky.position.z = -1;
-		this.lights.sky.position.y = 0;
-		this.lights.point = new THREE.PointLight(0xFFFFFF, 0.2);
-		this.lights.point.position.z = 5;
-		this.lights.top = new THREE.DirectionalLight(0xFFFFFF, 0.3);
-		this.lights.top.position.y = 1;
-		this.lights.top.position.z = 1;
-		this.lights.right = new THREE.DirectionalLight(0xFFFFFF, 0.4);
-		this.lights.right.position.x = 1;
-		this.lights.right.position.z = 1;
-		this.lights.bottom = new THREE.DirectionalLight(0xFFFFFF, 0.2);
-		this.lights.bottom.position.y = -1;
-		this.lights.bottom.position.z = 1;
-		this.lights.left = new THREE.DirectionalLight(0xFFFFFF, 0.1);
-		this.lights.left.position.x = -1;
-		this.lights.left.position.z = 1;
+			/**
+			 *    ^ y(top, -bottom)
+			 *    |
+			 *    |  场
+			 *    |______>
+			 *   /      x(right, -left)
+			 *  /
+			 * L z(back, -front)
+			 */
 
-		for (let name in this.lights)
-			this.scene.add(this.lights[name]);
+			this.scene = new PScene();
 
-		this.field = new THREE.Mesh(
-			this.gameField.createFloor(this.wallThickness),
-			new THREE.MeshLambertMaterial({ color: 0xFFFFFF, map: this.gameField.floorTexture })
-		);
-		this.wall = new THREE.Mesh(
-			this.gameField.createGeometry(this.wallThickness, 1),
-			new THREE.MeshLambertMaterial({ color: 0xCFF09E })
-		);
-		this.edgeshelper = new THREE.EdgesHelper(this.wall, 0x79BD9A);
-		this.scene.add(this.edgeshelper);
-		this.scene.add(this.wall);
-		this.scene.add(this.field);
+			// 光照
+			this.lights.sky = new THREE.HemisphereLight(0xFFFFFF, 0xAAAAAA, 0.3);
+			this.lights.sky.position.z = -1;
+			this.lights.sky.position.y = 0;
+			this.lights.point = new THREE.PointLight(0xFFFFFF, 0.2);
+			this.lights.point.position.z = 5;
+			this.lights.top = new THREE.DirectionalLight(0xFFFFFF, 0.3);
+			this.lights.top.position.y = 1;
+			this.lights.top.position.z = 1;
+			this.lights.right = new THREE.DirectionalLight(0xFFFFFF, 0.4);
+			this.lights.right.position.x = 1;
+			this.lights.right.position.z = 1;
+			this.lights.bottom = new THREE.DirectionalLight(0xFFFFFF, 0.2);
+			this.lights.bottom.position.y = -1;
+			this.lights.bottom.position.z = 1;
+			this.lights.left = new THREE.DirectionalLight(0xFFFFFF, 0.1);
+			this.lights.left.position.x = -1;
+			this.lights.left.position.z = 1;
 
-		this.gameField.initializeProps(this.scene);
+			for (let name in this.lights)
+				this.scene.add(this.lights[name]);
 
-		// 让 Three.JS 使用 Greensocks 的渲染循环
-		TweenMax.ticker.addEventListener('tick', this.renderTick.bind(this));
+			this.field = new THREE.Mesh(
+				this.gameField.createFloor(this.wallThickness),
+				new THREE.MeshLambertMaterial({ color: 0xFFFFFF, map: this.gameField.floorTexture })
+			);
+			this.wall = new THREE.Mesh(
+				this.gameField.createGeometry(this.wallThickness, 1),
+				new THREE.MeshLambertMaterial({ color: 0xCFF09E })
+			);
+			this.edgeshelper = new THREE.EdgesHelper(this.wall, 0x79BD9A);
+			this.scene.add(this.edgeshelper);
+			this.scene.add(this.wall);
+			this.scene.add(this.field);
 
-		$ui.mainCanvas
-			.mousemove(event => {
-				this.mouseCoord.x = (event.clientX / this.dispWidth) * 2 - 1;
-				this.mouseCoord.y = -(event.clientY / this.dispHeight) * 2 + 1;
-			})
-			.mousedown(() => (this.mouseDown = true, this.mouseDownFirst = true))
-			.mouseup(() => this.mouseDown = false)
-			.on('wheel', event => TweenMax.to(this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }));
+			this.gameField.initializeProps(this.scene);
 
-		this.antialiasing = false;
+			// 让 Three.JS 使用 Greensocks 的渲染循环
+			TweenMax.ticker.addEventListener('tick', this.renderTick.bind(this));
 
-		infoProvider.setNewLogCallback((display: IDisplayLog) => this.fullTL.add(this.gameField.applyChange(display)));
-		infoProvider.setReadFullLogCallback(log => {
-			if (log && log['output'] && log['output'].display)
-				this.fullTL.add(this.gameField.applyChange(log['output'].display));
-		});
+			$ui.mainCanvas
+				.mousemove(event => {
+					this.mouseCoord.x = (event.clientX / this.dispWidth) * 2 - 1;
+					this.mouseCoord.y = -(event.clientY / this.dispHeight) * 2 + 1;
+				})
+				.mousedown(() => (this.mouseDown = true, this.mouseDownFirst = true))
+				.mouseup(() => this.mouseDown = false)
+				.on('wheel', event => TweenMax.to(this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }));
+
+			let keyCode2dir = {
+				37: Direction.left,
+				38: Direction.up,
+				39: Direction.right,
+				40: Direction.down
+			};
+
+			$(window)
+				.resize(this.resetRenderer.bind(this))
+				.keydown(event => {
+					switch (event.keyCode) {
+						case 13: /* Enter */
+							this.fullTL.paused(!this.fullTL.paused());
+							return;
+						case 189: /* - */
+							this.fullTL.timeScale(this.fullTL.timeScale() * 0.5);
+							return;
+						case 187: /* = */
+							this.fullTL.timeScale(this.fullTL.timeScale() * 2);
+							return;
+						case 82: /* r */
+							this.fullTL.reversed(!this.fullTL.reversed());
+							return;
+					}
+
+					let dir = keyCode2dir[event.keyCode];
+					if (dir !== undefined) {
+						if (this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
+							let move: IRequest = { action: dir, tauntText: "" };
+							infoProvider.notifyPlayerMove(move);
+						}
+					} else
+						this.fullTL.timeScale(this.fullTL.timeScale() * 2);
+				});
+
+			this.antialiasing = false;
+
+			let parseLog = (display: IDisplayLog) => this.fullTL.add(this.gameField.applyChange(display));
+
+			logs.forEach(parseLog);
+
+			infoProvider.setNewLogCallback(parseLog);
+			infoProvider.setNewRequestCallback(log => {
+				// 接受用户输入
+			});
+
+			this.initialized = true;
+			finishCallback();
+		};
+
+		retrieveExistingLogs(initAndParseLogs);
 	}
 
 	public renderTick() {
@@ -1669,10 +1726,12 @@ $(window).load(() => {
 				}
 			let infobox = $(node).addClass("p" + i).hover(
 				e => {
-					engine.selectedObj = engine.gameField.players[i];
+					if (engine && engine.initialized)
+						engine.selectedObj = engine.gameField.players[i];
 				},
 				e => {
-					engine.selectedObj = null;
+					if (engine && engine.initialized)
+						engine.selectedObj = null;
 				}
 			);
 			templateContainer.append(infobox);
@@ -1826,13 +1885,13 @@ $(window).load(() => {
 		tl.from(borders[1], 1, { scale: 0, ease: Power2.easeOut });
 		tl.to(bkgRect.find(".intro-line-fill"), 3, { scaleY: "0" }, "-=3");
 
-		let p = new Promise((resolve: () => void) => tl.call(resolve));
 
 		// 离场
 		tl.call(() => ($ui.sGameScene.show(), bkgRect.css({ overflow: "hidden", borderColor: "white" })));
 		tl.to(bkgRect, 1, { width: 0, ease: Power2.easeIn });
 		tl.to(bkgRect, 1, { scaleY: 2, y: "-100%", ease: Power2.easeOut });
 		tl.to(bkgRect, 2, { y: "100%" });
+		let p = new Promise((resolve: () => void) => tl.call(resolve));
 		tl.from($ui.sGameScene, 2, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=2");
 		tl.call(() => ($ui.sIntro.hide(), infoProvider.notifyRequestResume()));
 
@@ -1870,51 +1929,22 @@ $(window).load(() => {
 			TweenMax.set(settingContainer, { rotationY: dx * 15, z: "-1em" });
 		});
 
-		engine = new Engine(); // 千万要在场景初始化好后再执行！
-
-		let keyCode2dir = {
-			37: Direction.left,
-			38: Direction.up,
-			39: Direction.right,
-			40: Direction.down
-		};
-
-		$(window)
-			.resize(engine.resetRenderer.bind(engine))
-			.keydown(event => {
-				switch (event.keyCode) {
-					case 13: /* Enter */
-						engine.fullTL.paused(!engine.fullTL.paused());
-						return;
-					case 189: /* - */
-						engine.fullTL.timeScale(engine.fullTL.timeScale() * 0.5);
-						return;
-					case 187: /* = */
-						engine.fullTL.timeScale(engine.fullTL.timeScale() * 2);
-						return;
-					case 82: /* r */
-						engine.fullTL.reversed(!engine.fullTL.reversed());
-						return;
-				}
-
-				let dir = keyCode2dir[event.keyCode];
-				if (dir !== undefined) {
-					if (engine.gameField.testMove(infoProvider.getPlayerID(), dir)) {
-						let move: IRequest = { action: dir, tauntText: "" };
-						infoProvider.notifyPlayerMove(move);
-					}
-				} else
-					engine.fullTL.timeScale(engine.fullTL.timeScale() * 2);
-			});
-
-		return;
+		return new Promise(r => engine = new Engine(r)); // 千万要在场景初始化好后再执行！
 	};
 
+	const fFinalInitializations = () => {
 
-	new Promise((r) => (infoProvider.notifyInitComplete(), r()))
+
+	};
+
+	new Promise(r => {
+		infoProvider.notifyFinishedLoading();
+		r();
+	})
 		.then(fLoadExternalModels)
 		//.then(fOpening)
 		.then(fBreakFourthWallAgain)
 		.then(fCreateScene)
-		.catch(err => console.error(err))
+		.then(fFinalInitializations)
+		.catch(err => console.error(err));
 });

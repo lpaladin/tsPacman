@@ -66,6 +66,8 @@ declare var infoProvider: {
 	setSize(width: number, height: number): void,
 	// 内部初始化结束后调用
 	notifyInitComplete(): void,
+	// （可选）调用后可以隐藏载入遮罩
+	notifyFinishedLoading(): void,
 	// 玩家下了一步
 	notifyPlayerMove(move: any): void,
 	// 播放器想要暂停（不一定有效）
