@@ -26,6 +26,9 @@ interface BotResultLog extends ResultLogBase {
 
 interface JQuery {
 	shatter(): JQuery;
+	expand(): JQuery;
+	shrink(): JQuery;
+	addNumberHandle(): JQuery;
 }
 
 declare type FullLogItem = JudgeResultLog | {
@@ -43,11 +46,11 @@ declare var infoProvider: {
 	// 获得所有log
 	getLogList(): FullLog,
 	// 获得所有玩家名字数组
-	getPlayerNames: string[],
+	getPlayerNames(): { name: string }[],
 	// 获得是否是实时对局
 	isLive(): boolean,
 	// 获得当前玩家位置序号（-1表示回放/观战）
-	getPlayerID: number,
+	getPlayerID(): number,
 	// 传入回调函数原型：void fn(currentLog)（通常用于实时播放信息）
 	setNewLogCallback(cb: (display: any) => void): void,
 	// 传入回调函数原型：void fn(currentLog)（提醒玩家当前是玩家回合）

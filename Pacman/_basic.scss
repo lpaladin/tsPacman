@@ -16,6 +16,18 @@ $mid-blue: #386DBD;
 $dark-blue: #0F4571;
 $black: #3A3132;
 
+$theme-1: #FA6900;
+$theme-2: #F38630;
+$theme-3: #E0E4CC;
+$theme-4: #A7DBD8;
+$theme-5: #69D2E7;
+
+$theme2-1: #0B486B;
+$theme2-2: #3B8686;
+$theme2-3: #79BD9A;
+$theme2-4: #A8DBA8;
+$theme2-5: #CFF09E;
+
 @mixin keyframes($name) {
 	@-moz-keyframes #{$name} {
 		@content;
@@ -26,6 +38,14 @@ $black: #3A3132;
 	@keyframes #{$name} {
 		@content;
 	}
+}
+
+%fill {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
 }
 
 /**
@@ -44,7 +64,7 @@ $black: #3A3132;
 		bottom: 15px;
 		left: 10px;
 		width: 50%;
-		top: 80%;
+		height: 15px;
 		background: #777;
 		box-shadow: 0 15px 10px #777;
 		-moz-transform: rotate(-3deg);

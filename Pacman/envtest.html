@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>-</title>
+	<meta charset="utf-8" />
+	<script src="three.min.js"></script>
+	<script src="js/renderers/Projector.js"></script>
+	<script src="js/renderers/CanvasRenderer.js"></script>
+	<script src="jquery-1.9.1.min.js"></script>
+	<script>
+		var obj;
+		$(document).ready(function () {
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setClearColor(0xAAAAAA, 1);
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight);
+			camera.position.z = 2;
+			camera.lookAt(new THREE.Vector3());
+
+			scene.add(camera);
+			var l = new THREE.PointLight(0xFFFFFF, 1);
+			l.position.set(0, 2, 0);
+			scene.add(l);
+			scene.add(new THREE.PointLightHelper(l, 1));
+			scene.add(new THREE.HemisphereLight(0xFFFFFF, 0xAAAAAA, 1));
+
+			var loader = new THREE.JSONLoader();
+			loader.load("models/fences.json", function (g, m) {
+				obj = new THREE.Mesh(g, m[0]);
+				obj.position.set(0, 0, 0);
+				scene.add(obj);
+			});
+
+			var e = renderer.domElement;
+			e.width = window.innerWidth;
+			e.height = window.innerHeight;
+
+			var mouseCoord = new THREE.Vector2();
+			document.body.appendChild(e);
+			document.body.onmousemove = function (event) {
+				mouseCoord.x = (event.clientX / window.innerWidth) * 2 - 1;
+				mouseCoord.y = -(event.clientY / window.innerHeight) * 2 + 1;
+			};
+
+			function Render() {
+				let tiltx = mouseCoord.x * Math.PI / 2;
+				let tilty = mouseCoord.y * Math.PI / 2;
+
+				// 鼠标控制视角
+				camera.position.x = Math.sin(tiltx) * 1;
+				camera.position.y = Math.sin(tilty) * 1;
+				camera.lookAt(new THREE.Vector3());
+
+				renderer.render(scene, camera);
+				requestAnimationFrame(Render);
+			}
+			Render();
+		});
+	</script>
+</head>
+<body style="padding: 0; margin: 0; overflow: hidden">
+</body>
+</html>

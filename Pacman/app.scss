@@ -129,6 +129,10 @@
 	}
 }
 
+#prgbarLoading {
+	margin-top: 2em;
+}
+
 #sGameScene {
 	background-color: white;
 	font-family: 'Microsoft YaHei', SimHei;
@@ -138,22 +142,10 @@
 		-o-transition: transform ease 0.3s;
 		-webkit-transition: transform ease 0.3s;
 		transition: transform ease 0.3s;
-
-		&.active {
-			-moz-transform: translateX(-16em);
-			-ms-transform: translateX(-16em);
-			-o-transform: translateX(-16em);
-			-webkit-transform: translateX(-16em);
-			transform: translateX(-16em);
-		}
 	}
 
 	.canvas-container {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
+		@extend %fill;
 
 		.letterbox.top, .letterbox.bottom {
 			position: absolute;
@@ -161,10 +153,6 @@
 			left: 0;
 			right: 0;
 			background-color: black;
-			-moz-transition: transform ease 0.3s;
-			-o-transition: transform ease 0.3s;
-			-webkit-transition: transform ease 0.3s;
-			transition: transform ease 0.3s;
 			z-index: 8;
 		}
 
@@ -188,51 +176,23 @@
 			transform-origin: center bottom;
 		}
 
-		.screen-shot {
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			position: absolute;
-			border: 2px solid gray;
-			border-radius: 5px;
-			z-index: 11;
-			display: none;
-
-			> img {
-				background-color: white;
-				position: absolute;
-				top: 0;
-				left: 0;
-				right: 0;
-				bottom: 0;
-				width: 100%;
-				height: 100%;
-			}
-
-			@extend %card-effect;
-		}
-
 		.spark {
 			background: radial-gradient(white 80%, transparent);
 			border-radius: 50% 50%;
 		}
 
 		&.cinematic {
-			.letterbox {
-				-moz-transform: scaleY(2);
-				-ms-transform: scaleY(2);
-				-o-transform: scaleY(2);
-				-webkit-transform: scaleY(2);
-				transform: scaleY(2);
-			}
-
 			.infobox-container {
 				-moz-transform: translateX(-100%);
 				-ms-transform: translateX(-100%);
 				-o-transform: translateX(-100%);
 				-webkit-transform: translateX(-100%);
 				transform: translateX(-100%);
+			}
+
+			.screen-shot-container {
+				opacity: 0;
+				visibility: hidden;
 			}
 		}
 	}
@@ -275,13 +235,45 @@
 		transition: transform ease 0.2s;
 		pointer-events: none;
 		opacity: 0.7;
+		display: none;
+		text-align: center;
+	}
+
+	.strength-delta {
+		position: absolute;
+		top: 0;
+		left: 0;
+		text-shadow: 1px 0 0 white, 0 1px 0 white, -1px 0 0 white, 0 -1px 0 white, 0 0 5px black;
+		font-weight: bold;
+		font-size: 3em;
+		visibility: hidden;
+		z-index: 100;
+
+		&.dec {
+			text-shadow: 1px 0 0 black, 0 1px 0 black, -1px 0 0 black, 0 -1px 0 black, 0 0 5px white;
+		}
+
+		&.p0 {
+			color: #df7c7c;
+		}
+
+		&.p1 {
+			color: #7bdc7b;
+		}
+
+		&.p2 {
+			color: #8097df;
+		}
+
+		&.p3 {
+			color: #e0e17e;
+		}
 	}
 
 	#panSettings {
 		position: absolute;
 		top: 0;
 		left: 100%;
-		right: -16em;
 		bottom: 0;
 		overflow: visible;
 		border: none;
@@ -289,6 +281,7 @@
 		box-shadow: $black 2px 2px 20px inset;
 		padding: 0;
 		background: url(textured_paper.png);
+		white-space: nowrap;
 
 		> .container {
 			margin: 0;
@@ -585,7 +578,6 @@
 	-webkit-box-sizing: border-box;
 	box-sizing: border-box;
 	border-radius: 10em; // 由于圆角弧线不能互相覆盖，这里指定一个巨大的值就能实现四个角都是尽可能大的圆形（而非椭圆）弧线
-
 	.label {
 		position: relative;
 		padding-left: 2em;
@@ -605,9 +597,9 @@
 			text-shadow: -1px 1px 0 white, 1px -1px 0 white, 1px 1px white, -1px -1px 0 white;
 		}
 
-		> span:before {
-			margin: 0;
-		}
+			> span:before {
+				margin: 0;
+			}
 	}
 
 	.value {
@@ -620,59 +612,103 @@
 		padding: 0 1em;
 		margin: 2px;
 	}
-
 	// 对不同类型数值的样式
-
 	&.turnid {
-		background-image: linear-gradient(to bottom, $blue, $light-blue);
-
+		background-color: $theme2-1;
+		//background-image: linear-gradient(to bottom, $blue, $light-blue);
 		.label > span {
-			color: $mid-blue;
+			color: $theme2-1;
 		}
 
 		.value {
-			background-image: linear-gradient(-45deg, $light-blue, white);
+			background-color: lighten($theme2-1, 20%);
+			//background-image: linear-gradient(-45deg, $light-blue, white);
 		}
 	}
 
 	&.alivecount {
-		background-image: linear-gradient(to bottom, orange, #f0b953);
-
+		background-color: $theme2-2;
+		//background-image: linear-gradient(to bottom, $theme-2, lighten($theme-2, 20%));
 		.label > span {
-			color: orange;
+			color: $theme2-2;
 		}
 
 		.value {
-			background-image: linear-gradient(-45deg, orange, white);
+			background-color: lighten($theme2-2, 20%);
+			//background-image: linear-gradient(-45deg, $theme-2, white);
 		}
 	}
 
-	&.rank {
-		background-image: linear-gradient(to bottom, #ff1a1a, #ff7272);
-		box-shadow: #999 0 -3px 5px inset;
+	&.remaining {
+		background-color: $theme2-4;
 
 		.label > span {
-			color: red;
+			color: $theme2-4;
+			text-shadow: -1px 1px 0 $black, 1px -1px 0 $black, 1px 1px $black, -1px -1px 0 $black;
 		}
 
 		.value {
-			background-image: linear-gradient(-45deg, #ff7272, #eee);
-			box-shadow: #999 0 3px 5px inset;
+			background-color: darken($theme2-4, 20%);
 		}
 	}
 
 	&.strength {
-		background-image: linear-gradient(to bottom, #d6d758, #d5d686);
-		box-shadow: #aaa 0 -3px 5px inset;
+		background-color: $theme2-3;
 
 		.label > span {
-			color: gold;
+			color: $theme2-3;
 		}
 
-		.value {
-			background-image: linear-gradient(-45deg, #dddf88, #eee);
-			box-shadow: #aaa 0 3px 5px inset;
+		> .value {
+			background-color: lighten($theme2-3, 20%);
 		}
+
+		.powerupamount {
+			display: none;
+
+			> .value {
+				padding: 0 0.5em 0 0;
+				color: #155994;
+				text-shadow: -1px 1px 0 white, 1px -1px 0 white, 1px 1px white, -1px -1px 0 white;
+			}
+		}
+	}
+}
+
+.screen-shot-container {
+	position: absolute;
+	top: 50%;
+	left: 100%;
+	-moz-transform: translate(-50%, -50%);
+	-ms-transform: translate(-50%, -50%);
+	-o-transform: translate(-50%, -50%);
+	-webkit-transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	-moz-transition: opacity linear 0.3s;
+	-o-transition: opacity linear 0.3s;
+	-webkit-transition: opacity linear 0.3s;
+	transition: opacity linear 0.3s;
+}
+
+.screen-shot {
+	z-index: 11;
+	visibility: hidden;
+	height: 4em;
+	border: 3px solid gray;
+	border-radius: 5px;
+	position: relative;
+	@extend %card-effect;
+
+	> img {
+		height: 100%;
+	}
+
+	&.satisified {
+		-moz-transition: transform ease 0.5s;
+		-o-transition: transform ease 0.5s;
+		-webkit-transition: transform ease 0.5s;
+		transition: transform ease 0.5s;
 	}
 }
 
@@ -693,24 +729,31 @@
 	.infobox {
 		position: relative;
 		margin: 1em;
-		opacity: 0.8;
+		z-index: 0;
 		-moz-box-sizing: border-box;
 		-webkit-box-sizing: border-box;
 		box-sizing: border-box;
-		border-radius: 0.5em;
-		-moz-transition: transform ease 0.3s, opacity ease 0.3s;
-		-o-transition: transform ease 0.3s, opacity ease 0.3s;
-		-webkit-transition: transform ease 0.3s, opacity ease 0.3s;
-		transition: transform ease 0.3s, opacity ease 0.3s;
+		-moz-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+		-o-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+		-webkit-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+		transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
 		white-space: nowrap;
+		border-radius: 5px;
 		@extend %card-effect;
+
+		&.powerup {
+			box-shadow: lightblue 0 0 10px 3px;
+
+			.powerupamount {
+				display: inline;
+			}
+		}
 
 		&:last-child {
 			border-bottom-width: 2px;
 		}
 
 		&:hover {
-			opacity: 1;
 			-moz-transform: translateX(1em);
 			-ms-transform: translateX(1em);
 			-o-transform: translateX(1em);
@@ -720,10 +763,17 @@
 
 		.infobox-content {
 			position: relative;
-			padding: 1em;
-			border-radius: 0.5em;
-			box-shadow: #ccc 0 -3px 5px inset;
-			background-image: linear-gradient(45deg, #d5d5d5, white);
+			padding: 1em 3em;
+			border-radius: 5px;
+			background-image: linear-gradient(to bottom, lighten($theme2-5, 5%) 49.9%, $theme2-5 50.1%);
+			border: 1px solid darken($theme2-5, 15%);
+
+			> * {
+				-moz-transition: transform ease 0.3s;
+				-o-transition: transform ease 0.3s;
+				-webkit-transition: transform ease 0.3s;
+				transition: transform ease 0.3s;
+			}
 		}
 
 		.player-name-wrap {
@@ -746,14 +796,13 @@
 
 			.player-name {
 				color: white;
-				font-weight: bold;
 				text-shadow: -1px 1px 0 black, 1px -1px 0 black, 1px 1px black, -1px -1px 0 black;
 			}
 		}
 
-		&.p1 {
+		&.p0 {
 			.player-name-wrap {
-				background-color: rgba(222, 66, 66, 0.25);
+				background-color: #df7c7c;
 
 				> svg use {
 					fill: red;
@@ -761,9 +810,9 @@
 			}
 		}
 
-		&.p2 {
+		&.p1 {
 			.player-name-wrap {
-				background-color: rgba(66, 222, 66, 0.25);
+				background-color: #7bdc7b;
 
 				> svg use {
 					fill: green;
@@ -771,9 +820,9 @@
 			}
 		}
 
-		&.p3 {
+		&.p2 {
 			.player-name-wrap {
-				background-color: rgba(66, 105, 222, 0.25);
+				background-color: #8097df;
 
 				> svg use {
 					fill: blue;
@@ -781,14 +830,37 @@
 			}
 		}
 
-		&.p4 {
+		&.p3 {
 			.player-name-wrap {
-				background-color: rgba(221, 222, 66, 0.25);
+				background-color: #e0e17e;
 
 				> svg use {
 					fill: yellow;
 				}
 			}
+		}
+
+		&.dead {
+			-moz-filter: grayscale(100%);
+			-ms-filter: grayscale(100%);
+			-webkit-filter: grayscale(100%);
+			filter: grayscale(100%);
+
+			.infobox-content > * {
+				-moz-transform: translateX(-2em);
+				-ms-transform: translateX(-2em);
+				-o-transform: translateX(-2em);
+				-webkit-transform: translateX(-2em);
+				transform: translateX(-2em);
+			}
+		}
+
+		&:not(:hover) .screen-shot.satisified {
+			-moz-transform: rotate(-15deg) !important;
+			-ms-transform: rotate(-15deg) !important;
+			-o-transform: rotate(-15deg) !important;
+			-webkit-transform: rotate(-15deg) !important;
+			transform: rotate(-15deg) !important;
 		}
 	}
 }

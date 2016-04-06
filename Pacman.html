@@ -21,6 +21,7 @@
 			user-select: none;
 			cursor: default;
 			font-family: 'Microsoft YaHei';
+			font-size: 2vh;
 		}
 
 		.centered {
@@ -136,8 +137,8 @@
 	<svg style="display: none" viewBox="0 0 1 1">
 		<defs>
 			<g id="svgNameBorder">
-				<polygon points="0 0, 0 0.5, 0.02 0.1, 0.1 0" />
-				<polygon points="1 1, 1 0.5, 0.98 0.9, 0.9 1" />
+				<polygon points="0 0, 0 0.5, 0.02 0.1, 0.1 0"></polygon>
+				<polygon points="1 1, 1 0.5, 0.98 0.9, 0.9 1"></polygon>
 			</g>
 		</defs>
 	</svg>
@@ -145,6 +146,7 @@
 	<section id="sLoading">
 		<div class="centered">
 			<figure>正在载入资源，请稍候……</figure>
+			<progress id="prgbarLoading"></progress>
 		</div>
 	</section>
 	<section id="sIntro" style="display: none">
@@ -179,6 +181,10 @@
 			<figure class="letterbox bottom"></figure>
 			<canvas id="mainCanvas"></canvas>
 			<div id="lblFloatingInfo">...</div>
+			<figure class="strength-delta p0">+1</figure>
+			<figure class="strength-delta p1">+1</figure>
+			<figure class="strength-delta p2">+1</figure>
+			<figure class="strength-delta p3">+1</figure>
 			<div class="infobox-container">
 				<div class="misc">
 					<figure class="turnid value-wrap">
@@ -201,7 +207,7 @@
 						<div class="infobox-content">
 							<p class="player-name-wrap">
 								<svg viewBox="0 0 1 1" preserveAspectRatio="none">
-									<use xlink:href="#svgNameBorder" />
+									<use xlink:href="#svgNameBorder"></use>
 								</svg>
 								<span class="player-name">【玩家姓名】</span>
 							</p>
@@ -210,21 +216,25 @@
 									<span class="icon-flash"></span>
 									力量
 								</span>
-								<span class="value">233</span>
-							</figure>
-							<figure class="rank value-wrap">
-								<span class="label">
-									<span class="icon-crown"></span>
-									排名
-								</span>
 								<span class="value">1</span>
+								<span class="powerupamount">
+									<span class="value">+3</span>
+								</span>
+							</figure>
+							<figure class="remaining value-wrap">
+								<span class="label">
+									<span class="icon-hourglass"></span>
+									增益剩余
+								</span>
+								<span class="value">0</span>
 							</figure>
 						</div>
+						<div class="screen-shot-container">
+							<figure class="screen-shot"><img /></figure>
+						</div>
 					</div>
-
 				</template>
 			</div>
-			<figure class="screen-shot"><img /></figure>
 		</div>
 		<fieldset id="panSettings" class="push-left">
 			<div class="container">
@@ -256,15 +266,17 @@
 					<input type="checkbox" onchange="engine.sound = this.checked" />
 				</div>
 			</div>
-			<a class="show" onclick="$('.push-left').toggleClass('active')"><span class="icon-cogs"></span> 设置</a>
+			<a class="show"><span class="icon-cogs"></span> 设置</a>
 		</fieldset>
 		<div id="panControl"></div>
 	</section>
-	<link id="lnkCSS" href="app.min.css?" rel="stylesheet" />
-	<script src="es6-promise.min.js"></script>
-	<script src="greensocks/TweenMax.min.js"></script>
-	<script src="three.min.js"></script>
-	<script src="jquery-1.9.1.min.js"></script>
-	<script src="app.js"></script>
+	<script src="player_api.js"></script>
+	<link id="lnkCSS" href="Pacman/app.min.css?" rel="stylesheet" />
+	<script src="Pacman/jquery-1.9.1.min.js"></script>
+	<script src="/greensocks/TweenMax.min.js"></script>
+	<script src="Pacman/greensocks/TweenMax.min.js"></script>
+	<script src="Pacman/es6-promise.min.js"></script>
+	<script src="Pacman/three.min.js"></script>
+	<script src="Pacman/app.js"></script>
 </body>
 </html>

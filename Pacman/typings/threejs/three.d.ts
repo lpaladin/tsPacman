@@ -1347,7 +1347,7 @@ declare module THREE {
         /**
          * Unique number of this object instance.
          */
-        id: number;
+        playerID: number;
 
         /**
          *

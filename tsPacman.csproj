@@ -22,26 +22,27 @@
     <Service Include="{4A0DDDB5-7A95-4FBF-97CC-616D07737A77}" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="app.css">
+    <Content Include="Pacman\app.css">
       <DependentUpon>app.scss</DependentUpon>
     </Content>
-    <Content Include="app.min.css">
+    <Content Include="Pacman\app.min.css">
       <DependentUpon>app.css</DependentUpon>
     </Content>
     <Content Include="Pacman.html" />
-    <Content Include="textured_paper.png" />
+    <Content Include="Pacman\envtest.html" />
+    <Content Include="Pacman\textured_paper.png" />
     <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
-    <TypeScriptCompile Include="app.ts" />
-    <TypeScriptCompile Include="typings\botzone.d.ts" />
-    <TypeScriptCompile Include="typings\es6-promise\es6-promise.d.ts" />
-    <TypeScriptCompile Include="typings\greensock\greensock.d.ts" />
-    <TypeScriptCompile Include="typings\jquery\jquery.d.ts" />
-    <TypeScriptCompile Include="typings\threejs\three.d.ts" />
+    <TypeScriptCompile Include="Pacman\app.ts" />
+    <TypeScriptCompile Include="Pacman\typings\botzone.d.ts" />
+    <TypeScriptCompile Include="Pacman\typings\es6-promise\es6-promise.d.ts" />
+    <TypeScriptCompile Include="Pacman\typings\greensock\greensock.d.ts" />
+    <TypeScriptCompile Include="Pacman\typings\jquery\jquery.d.ts" />
+    <TypeScriptCompile Include="Pacman\typings\threejs\three.d.ts" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="app.scss" />
+    <Content Include="Pacman\app.scss" />
     <None Include="compilerconfig.json" />
     <None Include="compilerconfig.json.defaults">
       <DependentUpon>compilerconfig.json</DependentUpon>
@@ -52,8 +53,8 @@
     <None Include="web.Release.config">
       <DependentUpon>web.config</DependentUpon>
     </None>
-    <Content Include="_fonts.scss" />
-    <Content Include="_basic.scss" />
+    <Content Include="Pacman\_fonts.scss" />
+    <Content Include="Pacman\_basic.scss" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">12.0</VisualStudioVersion>
