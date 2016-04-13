@@ -152,6 +152,25 @@ body, section, p, div, figure, span, b, button, a {
   right: 10px;
   left: auto; }
 
+/* http://stackoverflow.com/questions/2610497/change-an-inputs-html5-placeholder-color-with-css */
+::-webkit-input-placeholder {
+  /* WebKit, Blink, Edge */
+  color: white !important; }
+
+:-moz-placeholder {
+  /* Mozilla Firefox 4 to 18 */
+  color: white !important;
+  opacity: 1 !important; }
+
+::-moz-placeholder {
+  /* Mozilla Firefox 19+ */
+  color: white !important;
+  opacity: 1 !important; }
+
+:-ms-input-placeholder {
+  /* Internet Explorer 10-11 */
+  color: white !important; }
+
 #sIntro {
   white-space: nowrap;
   font-size: 2em; }
@@ -254,6 +273,25 @@ body, section, p, div, figure, span, b, button, a {
 #prgbarLoading {
   margin-top: 2em; }
 
+#dResult {
+  display: none;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3); }
+  #dResult .infobox-container {
+    padding: 1em 2em;
+    background-color: #A8DBA8;
+    pointer-events: none; }
+    #dResult .infobox-container header {
+      font-weight: bold;
+      font-size: 2em;
+      color: white;
+      text-shadow: 1px -1px 0 black, -1px -1px 0 black, 1px 1px 0 black, -1px 1px 0 black, 2px 2px 0 black, 3px 3px 0 black; }
+
 #sGameScene {
   background-color: white;
   font-family: 'Microsoft YaHei', SimHei; }
@@ -288,15 +326,50 @@ body, section, p, div, figure, span, b, button, a {
   #sGameScene .canvas-container .spark {
     background: radial-gradient(white 80%, transparent);
     border-radius: 50% 50%; }
-  #sGameScene .canvas-container.cinematic .infobox-container {
+  #sGameScene .canvas-container.cinematic #dInfoboxContainer {
     -moz-transform: translateX(-100%);
     -ms-transform: translateX(-100%);
     -o-transform: translateX(-100%);
     -webkit-transform: translateX(-100%);
     transform: translateX(-100%); }
-  #sGameScene .canvas-container.cinematic .screen-shot-container {
-    opacity: 0;
-    visibility: hidden; }
+    #sGameScene .canvas-container.cinematic #dInfoboxContainer .screen-shot-container {
+      opacity: 0;
+      visibility: hidden; }
+  #sGameScene .canvas-container .bubble {
+    position: absolute;
+    right: 101%;
+    right: -webkit-calc(100% + 1em);
+    right: -moz-calc(100% + 1em);
+    right: calc(100% + 1em);
+    -moz-transform-origin: 100% 0;
+    -ms-transform-origin: 100% 0;
+    -o-transform-origin: 100% 0;
+    -webkit-transform-origin: 100% 0;
+    transform-origin: 100% 0;
+    visibility: hidden;
+    top: 0;
+    box-shadow: rgba(64, 64, 64, 0.4) 3px 3px 5px; }
+    #sGameScene .canvas-container .bubble .content {
+      display: block;
+      white-space: nowrap;
+      background-color: #386DBD;
+      color: white;
+      position: relative;
+      padding: 0.2em 0.5em; }
+    #sGameScene .canvas-container .bubble:before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 50%;
+      left: 50%;
+      background-color: #386DBD;
+      -moz-transform: skewX(-45deg);
+      -ms-transform: skewX(-45deg);
+      -o-transform: skewX(-45deg);
+      -webkit-transform: skewX(-45deg);
+      transform: skewX(-45deg);
+      box-shadow: rgba(64, 64, 64, 0.4) 3px 3px 5px; }
   #sGameScene #mainCanvas {
     position: absolute;
     top: 0;
@@ -320,19 +393,33 @@ body, section, p, div, figure, span, b, button, a {
     position: absolute;
     top: 0;
     left: 0;
-    background-color: white;
-    border: 2px solid gray;
-    border-radius: 5px;
+    background-color: #0B486B;
+    border: 2px solid #3B8686;
     padding: 0.5em;
-    box-shadow: gray 0 0 5px;
+    box-shadow: #3B8686 0 0 1px;
     -moz-transition: transform ease 0.2s;
     -o-transition: transform ease 0.2s;
     -webkit-transition: transform ease 0.2s;
     transition: transform ease 0.2s;
     pointer-events: none;
-    opacity: 0.7;
+    opacity: 0.9;
     display: none;
-    text-align: center; }
+    color: #eee;
+    text-align: left; }
+    #sGameScene #lblFloatingInfo header {
+      color: white;
+      text-shadow: 0 0 3px #0B486B, 0 0 3px #0B486B, 0 0 3px #0B486B, 0 0 3px #0B486B;
+      margin-bottom: 5px;
+      font-weight: bold; }
+    #sGameScene #lblFloatingInfo label {
+      display: block;
+      color: black;
+      margin-bottom: 5px;
+      font-weight: bold;
+      text-shadow: 1px 0 0 white, -1px 0 0 white, 0 1px 0 white, 0 -1px 0 white; }
+    #sGameScene #lblFloatingInfo span {
+      color: yellow;
+      margin: 0 3px; }
   #sGameScene .strength-delta {
     position: absolute;
     top: 0;
@@ -682,6 +769,18 @@ body, section, p, div, figure, span, b, button, a {
   -o-transition: opacity linear 0.3s;
   -webkit-transition: opacity linear 0.3s;
   transition: opacity linear 0.3s; }
+  .screen-shot-container .death-reason {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    font-weight: bold;
+    color: #000;
+    font-size: 0.8em;
+    z-index: 12;
+    background-color: rgba(255, 255, 255, 0.5); }
+    .screen-shot-container .death-reason figure {
+      display: inline-block; }
 
 .screen-shot {
   z-index: 11;
@@ -698,7 +797,7 @@ body, section, p, div, figure, span, b, button, a {
     -webkit-transition: transform ease 0.5s;
     transition: transform ease 0.5s; }
 
-.infobox-container {
+#dInfoboxContainer {
   position: absolute;
   top: 0;
   left: 0;
@@ -707,95 +806,204 @@ body, section, p, div, figure, span, b, button, a {
   -o-transition: transform ease 0.3s;
   -webkit-transition: transform ease 0.3s;
   transition: transform ease 0.3s; }
-  .infobox-container > .misc {
-    margin: 1em; }
-  .infobox-container .infobox {
+
+.infobox-container > .misc {
+  margin: 1em; }
+
+.infobox-container .infobox {
+  position: relative;
+  margin: 1em;
+  z-index: 0;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  -moz-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  -o-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  -webkit-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  white-space: nowrap;
+  text-align: center; }
+  .infobox-container .infobox .final-score {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    font-size: 3em;
+    font-weight: bold;
+    z-index: 20;
+    -moz-transform: translate(-50%, -50%) rotate(15deg);
+    -ms-transform: translate(-50%, -50%) rotate(15deg);
+    -o-transform: translate(-50%, -50%) rotate(15deg);
+    -webkit-transform: translate(-50%, -50%) rotate(15deg);
+    transform: translate(-50%, -50%) rotate(15deg);
+    text-shadow: 1px -1px 0 black, -1px -1px 0 black, 1px 1px 0 black, -1px 1px 0 black, 2px 2px 0 black, 3px 3px 0 black; }
+  .infobox-container .infobox.powerup {
+    box-shadow: #79BD9A 0 0 5px 2px; }
+    .infobox-container .infobox.powerup .powerupamount {
+      display: inline; }
+  .infobox-container .infobox:last-child {
+    border-bottom-width: 2px; }
+  .infobox-container .infobox .infobox-content {
     position: relative;
-    margin: 1em;
-    z-index: 0;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
-    box-sizing: border-box;
-    -moz-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-    -o-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-    -webkit-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-    transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-    white-space: nowrap;
-    border-radius: 5px; }
-    .infobox-container .infobox.powerup {
-      box-shadow: lightblue 0 0 10px 3px; }
-      .infobox-container .infobox.powerup .powerupamount {
-        display: inline; }
-    .infobox-container .infobox:last-child {
-      border-bottom-width: 2px; }
-    .infobox-container .infobox:hover {
-      -moz-transform: translateX(1em);
-      -ms-transform: translateX(1em);
-      -o-transform: translateX(1em);
-      -webkit-transform: translateX(1em);
-      transform: translateX(1em); }
-    .infobox-container .infobox .infobox-content {
+    padding: 1em 3em;
+    background-color: #CFF09E;
+    border: 3px solid transparent; }
+    .infobox-container .infobox .infobox-content > * {
+      -moz-transition: transform ease 0.3s;
+      -o-transition: transform ease 0.3s;
+      -webkit-transition: transform ease 0.3s;
+      transition: transform ease 0.3s; }
+  .infobox-container .infobox:hover .infobox-content {
+    border: 3px solid #A8DBA8; }
+  .infobox-container .infobox:active {
+    -moz-transform: scale(0.95);
+    -ms-transform: scale(0.95);
+    -o-transform: scale(0.95);
+    -webkit-transform: scale(0.95);
+    transform: scale(0.95); }
+  .infobox-container .infobox .player-name-wrap {
+    position: relative;
+    overflow: hidden;
+    padding: 0.3em;
+    border-radius: 0.2em;
+    margin-bottom: 0.5em;
+    text-align: center; }
+    .infobox-container .infobox .player-name-wrap > svg {
+      position: absolute;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      right: 0;
+      bottom: 0; }
+    .infobox-container .infobox .player-name-wrap .player-name {
+      color: white;
+      text-shadow: -1px 1px 0 black, 1px -1px 0 black, 1px 1px black, -1px -1px 0 black; }
+  .infobox-container .infobox.p0 .player-name-wrap {
+    background-color: #df7c7c; }
+    .infobox-container .infobox.p0 .player-name-wrap > svg use {
+      fill: red; }
+  .infobox-container .infobox.p0 .final-score {
+    color: red; }
+  .infobox-container .infobox.p1 .player-name-wrap {
+    background-color: #7bdc7b; }
+    .infobox-container .infobox.p1 .player-name-wrap > svg use {
+      fill: green; }
+  .infobox-container .infobox.p1 .final-score {
+    color: green; }
+  .infobox-container .infobox.p2 .player-name-wrap {
+    background-color: #8097df; }
+    .infobox-container .infobox.p2 .player-name-wrap > svg use {
+      fill: blue; }
+  .infobox-container .infobox.p2 .final-score {
+    color: blue; }
+  .infobox-container .infobox.p3 .player-name-wrap {
+    background-color: #e0e17e; }
+    .infobox-container .infobox.p3 .player-name-wrap > svg use {
+      fill: yellow; }
+  .infobox-container .infobox.p3 .final-score {
+    color: yellow; }
+  .infobox-container .infobox.dead {
+    -moz-filter: grayscale(100%);
+    -ms-filter: grayscale(100%);
+    -webkit-filter: grayscale(100%);
+    filter: grayscale(100%); }
+    .infobox-container .infobox.dead .infobox-content > * {
+      -moz-transform: translateX(-2em);
+      -ms-transform: translateX(-2em);
+      -o-transform: translateX(-2em);
+      -webkit-transform: translateX(-2em);
+      transform: translateX(-2em); }
+  .infobox-container .infobox:not(:hover) .screen-shot.satisified {
+    -moz-transform: rotate(-15deg) !important;
+    -ms-transform: rotate(-15deg) !important;
+    -o-transform: rotate(-15deg) !important;
+    -webkit-transform: rotate(-15deg) !important;
+    transform: rotate(-15deg) !important; }
+
+.low-detail *, .low-detail *:before, .low-detail *:after {
+  opacity: 1 !important;
+  box-shadow: none !important; }
+
+.low-detail .infobox.dead {
+  -moz-filter: none !important;
+  -ms-filter: none !important;
+  -webkit-filter: none !important;
+  filter: none !important; }
+  .low-detail .infobox.dead .infobox-content {
+    background-color: #ddd; }
+
+#panControl {
+  position: absolute;
+  bottom: 5em;
+  right: 5em; }
+  #panControl .control {
+    display: block;
+    text-align: center;
+    height: 3em;
+    width: 3em;
+    line-height: 3em;
+    vertical-align: middle;
+    border: 1px solid white;
+    background-color: #A8DBA8;
+    color: white;
+    text-shadow: -1px 1px 0 #0B486B, 1px -1px 0 #0B486B, 1px 1px #0B486B, -1px -1px 0 #0B486B;
+    visibility: hidden; }
+    #panControl .control:hover {
+      background-color: #79BD9A; }
+    #panControl .control:active {
+      background-color: #0B486B; }
+    #panControl .control.stay {
       position: relative;
-      padding: 1em 3em;
-      border-radius: 5px;
-      background-image: linear-gradient(to bottom, #daf3b4 49.9%, #CFF09E 50.1%);
-      border: 1px solid #aee65c; }
-      .infobox-container .infobox .infobox-content > * {
-        -moz-transition: transform ease 0.3s;
-        -o-transition: transform ease 0.3s;
-        -webkit-transition: transform ease 0.3s;
-        transition: transform ease 0.3s; }
-    .infobox-container .infobox .player-name-wrap {
-      position: relative;
-      overflow: hidden;
-      padding: 0.3em;
-      border-radius: 0.2em;
-      margin-bottom: 0.5em;
-      text-align: center; }
-      .infobox-container .infobox .player-name-wrap > svg {
-        position: absolute;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        left: 0;
-        right: 0;
-        bottom: 0; }
-      .infobox-container .infobox .player-name-wrap .player-name {
-        color: white;
-        text-shadow: -1px 1px 0 black, 1px -1px 0 black, 1px 1px black, -1px -1px 0 black; }
-    .infobox-container .infobox.p0 .player-name-wrap {
-      background-color: #df7c7c; }
-      .infobox-container .infobox.p0 .player-name-wrap > svg use {
-        fill: red; }
-    .infobox-container .infobox.p1 .player-name-wrap {
-      background-color: #7bdc7b; }
-      .infobox-container .infobox.p1 .player-name-wrap > svg use {
-        fill: green; }
-    .infobox-container .infobox.p2 .player-name-wrap {
-      background-color: #8097df; }
-      .infobox-container .infobox.p2 .player-name-wrap > svg use {
-        fill: blue; }
-    .infobox-container .infobox.p3 .player-name-wrap {
-      background-color: #e0e17e; }
-      .infobox-container .infobox.p3 .player-name-wrap > svg use {
-        fill: yellow; }
-    .infobox-container .infobox.dead {
-      -moz-filter: grayscale(100%);
-      -ms-filter: grayscale(100%);
-      -webkit-filter: grayscale(100%);
-      filter: grayscale(100%); }
-      .infobox-container .infobox.dead .infobox-content > * {
-        -moz-transform: translateX(-2em);
-        -ms-transform: translateX(-2em);
-        -o-transform: translateX(-2em);
-        -webkit-transform: translateX(-2em);
-        transform: translateX(-2em); }
-    .infobox-container .infobox:not(:hover) .screen-shot.satisified {
-      -moz-transform: rotate(-15deg) !important;
-      -ms-transform: rotate(-15deg) !important;
-      -o-transform: rotate(-15deg) !important;
-      -webkit-transform: rotate(-15deg) !important;
-      transform: rotate(-15deg) !important; }
+      font-weight: bold;
+      border-radius: 50%;
+      z-index: 2;
+      border-width: 2px; }
+    #panControl .control.direction {
+      position: absolute;
+      bottom: 50%;
+      right: 50%;
+      z-index: 1;
+      -moz-transform-origin: right bottom;
+      -ms-transform-origin: right bottom;
+      -o-transform-origin: right bottom;
+      -webkit-transform-origin: right bottom;
+      transform-origin: right bottom;
+      border-top-left-radius: 100%; }
+      #panControl .control.direction span {
+        display: inline-block;
+        -moz-transform: rotate(-45deg);
+        -ms-transform: rotate(-45deg);
+        -o-transform: rotate(-45deg);
+        -webkit-transform: rotate(-45deg);
+        transform: rotate(-45deg); }
+
+footer.keymap {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background-image: linear-gradient(to right, #A8DBA8, transparent);
+  padding: 0.3em;
+  color: gray; }
+  footer.keymap em {
+    font-weight: bold;
+    color: #0B486B;
+    font-style: normal; }
+  footer.keymap span {
+    color: black;
+    margin-left: 1em; }
+
+#txtTaunt {
+  position: absolute;
+  bottom: 1em;
+  right: 1em;
+  background-color: #A8DBA8;
+  outline: none;
+  border: none;
+  padding: 0.5em;
+  font-family: 'Microsoft YaHei';
+  color: black;
+  width: 20em;
+  visibility: hidden; }
 
 @-moz-keyframes scaleYoyo {
   from {

@@ -4,6 +4,7 @@
 }
 
 #btnReloadCSS {
+	//display: none;
 	position: fixed;
 	bottom: 0;
 	right: 0;
@@ -27,6 +28,15 @@ $theme2-2: #3B8686;
 $theme2-3: #79BD9A;
 $theme2-4: #A8DBA8;
 $theme2-5: #CFF09E;
+
+$p0-lighten: #df7c7c;
+$p0: red;
+$p1-lighten: #7bdc7b;
+$p1: green;
+$p2-lighten: #8097df;
+$p2: blue;
+$p3-lighten: #e0e17e;
+$p3: yellow;
 
 @mixin keyframes($name) {
 	@-moz-keyframes #{$name} {
@@ -83,4 +93,20 @@ $theme2-5: #CFF09E;
 		right: 10px;
 		left: auto;
 	}
+}
+
+/* http://stackoverflow.com/questions/2610497/change-an-inputs-html5-placeholder-color-with-css */
+::-webkit-input-placeholder { /* WebKit, Blink, Edge */
+	color: white !important;
+}
+:-moz-placeholder { /* Mozilla Firefox 4 to 18 */
+	color: white !important;
+	opacity: 1 !important;
+}
+::-moz-placeholder { /* Mozilla Firefox 19+ */
+	color: white !important;
+	opacity: 1 !important;
+}
+:-ms-input-placeholder { /* Internet Explorer 10-11 */
+	color: white !important;
 }

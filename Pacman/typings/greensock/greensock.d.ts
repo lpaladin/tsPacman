@@ -14,9 +14,13 @@ interface IDispatcher {
 declare type Tween = TweenLite | TweenMax;
 declare type Timeline = SimpleTimeline | TimelineLite | TimelineMax;
 
+interface Ticker extends IDispatcher {
+	fps(fps: number): void;
+}
+
 //com.greensock.core
 declare class Animation {
-	static ticker: IDispatcher;
+	static ticker: Ticker;
 	data: any;
 	timeline: SimpleTimeline;
 	vars: Object;

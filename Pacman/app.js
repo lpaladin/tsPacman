@@ -9,19 +9,20 @@ var __extends = (this && this.__extends) || function (d, b) {
  * 使用的库：Greensocks、THREE.js
  * 已进行 Chrome 和 Firefox 的兼容性测试
  * 时间轴约定：表现和背后逻辑变量是不同时的，背后的逻辑变量只在计算时临时出现，表现需要依赖于当次计算出的逻辑变量或解析当前表现
+ * 已知bug：弹幕无法正常使用
  * 作者：zhouhy
  */
 /*
  ### 第三方资源版权声明 ###
 
-吃豆人模型：
-作者：zhouhy，工具：Blender
-可自由使用，不保留任何权利。
+    吃豆人模型：
+    作者：zhouhy，工具：Blender
+    可自由使用，不保留任何权利。
 
-苹果模型：
-Apple Low Poly #01 by Game Green is licensed under CC Attribution
-由 zhouhy 进行了顶点着色。
-https://skfb.ly/EGJ6
+    苹果模型：
+    Apple Low Poly #01 by Game Green is licensed under CC Attribution
+    由 zhouhy 进行了顶点着色。
+    https://skfb.ly/EGJ6
 
  */
 window['Promise'] = window['Promise'] || window['ES6Promise'];
@@ -278,7 +279,7 @@ var TL = (function (_super) {
             _super.prototype.add.call(this, value, position, align, stagger);
         }
         else
-            console.log("Empty insert: ", arguments);
+            console.log("Empty insert: ", this);
         return this;
     };
     return TL;
@@ -586,7 +587,6 @@ var GameFieldBaseLogic = (function () {
         }
     }
     GameFieldBaseLogic.prototype.applyChange = function (log) {
-        console.log("parsing log", log);
         var tl = new TL();
         var i;
         var _;
@@ -626,18 +626,22 @@ var GameFieldBaseLogic = (function () {
                 }
                 else if (change & PlayerStatusChange.ateLarge) {
                     fieldCursor.val = CellStatus.empty;
-                    if (_p.powerUpLeft == 0)
+                    if (_p.powerUpLeft == 0) {
+                        _p.strength += this.LARGE_FRUIT_ENHANCEMENT;
                         trace.strengthDelta[_.toString()] -= this.LARGE_FRUIT_ENHANCEMENT;
+                    }
                     tl.add([
                         this.propHide(_p.fieldCoord.on(this.cellProp).val),
-                        this.powerUpLeftModification(_p, this.LARGE_FRUIT_DURATION)
+                        this.powerUpLeftModification(_p, this.LARGE_FRUIT_DURATION - 1)
                     ], 0.5);
                 }
                 // 5. 大豆回合变化
-                if (_p.powerUpLeft)
+                if (_p.powerUpLeft && !(change & PlayerStatusChange.ateLarge))
                     tl.add(this.powerUpLeftModification(_p, -1), 0.5);
-                if (change & PlayerStatusChange.powerUpCancel)
+                if (change & PlayerStatusChange.powerUpCancel) {
                     trace.strengthDelta[_.toString()] += this.LARGE_FRUIT_ENHANCEMENT;
+                    _p.strength -= this.LARGE_FRUIT_ENHANCEMENT;
+                }
             }
             // *. 力量变化
             if (trace.strengthDelta[_.toString()])
@@ -645,6 +649,10 @@ var GameFieldBaseLogic = (function () {
         }
         this.turnID++;
         tl.add(this.updateDisplayInfo());
+        if (log.result) {
+            // 游戏结束啦
+            tl.add(this.showResults(log.result));
+        }
         return tl;
     };
     GameFieldBaseLogic.prototype.roundToCoordAndSet = function (pos, obj, duration) {
@@ -673,7 +681,8 @@ var GameFieldBaseLogic = (function () {
         if (duration === void 0) { duration = 0; }
         return TweenMax.to(obj.position, duration, {
             x: this.X(obj.fieldCoord.c),
-            y: this.Y(obj.fieldCoord.r)
+            y: this.Y(obj.fieldCoord.r),
+            immediateRender: false
         });
     };
     GameFieldBaseLogic.prototype.X = function (c) {
@@ -758,10 +767,10 @@ var GameField = (function (_super) {
         tl.add(biDirConstSet(dobj[0], "innerHTML", sign + delta));
         var s = this.strengthOffsets[this.oldOrder.indexOf(player.playerID)];
         if (sign == "-") {
-            tl.set(dobj, { className: "+=dec" });
+            tl.set(dobj, { className: "+=dec", immediateRender: false });
         }
         else {
-            tl.set(dobj, { className: "-=dec" });
+            tl.set(dobj, { className: "-=dec", immediateRender: false });
         }
         tl.call(function () {
             return TweenMax.set(dobj, _this.engine.projectTo2D(_this.wrapXY(player.lazyvars.fieldCoord, { z: 1 })));
@@ -839,13 +848,41 @@ var GameField = (function (_super) {
             return tl;
         }
     };
+    GameField.prototype.playerTaunt = function (player, taunt) {
+        var _this = this;
+        var tl = new TL();
+        var bobj = $tauntBubbles[player.playerID];
+        tl.add(biDirConstSet(bobj.find(".content")[0], "textContent", taunt));
+        tl.call(function () {
+            return TweenMax.set(bobj, _this.engine.projectTo2D(_this.wrapXY(player.lazyvars.fieldCoord, { z: 1 })));
+        });
+        tl.fromTo(bobj, 0.2, { autoAlpha: 0, scale: 0 }, { autoAlpha: 1, scale: 1, immediateRender: false, ease: Back.easeOut });
+        tl.to(bobj, 0.1, { autoAlpha: 0 }, 0.8);
+        return tl;
+    };
+    GameField.prototype.showResults = function (scores) {
+        var tl = new TL();
+        var $container = $ui.dResult.find(".infobox-container");
+        tl.add(biDirConstSet(this.engine, "cinematic", true));
+        tl.call(function () {
+            $container.find(".infobox").remove();
+            var $newBoxes = $info.self.children(".infobox").clone();
+            for (var id in scores)
+                $newBoxes.filter(".p" + id).find('.final-score').text(scores[id] + "分");
+            $container.append($newBoxes);
+        });
+        tl.set($ui.dResult, { display: "block", immediateRender: false });
+        tl.to($ui.dResult, 0.5, { autoAlpha: 1 });
+        tl.fromTo($container, 0.5, { scale: 0 }, { scale: 1, ease: Back.easeOut.config(0.5) }, "-=0.25");
+        return tl;
+    };
     GameField.prototype.powerUpLeftModification = function (player, delta) {
         var tl = new TL();
         if (player.powerUpLeft == 0 && delta > 0) {
-            tl.set($info.infobox["p" + player.playerID].self, { className: "+=powerup" });
+            tl.set($info.infobox["p" + player.playerID].self, { className: "+=powerup", immediateRender: false });
         }
         else if (player.powerUpLeft + delta == 0) {
-            tl.set($info.infobox["p" + player.playerID].self, { className: "-=powerup" });
+            tl.set($info.infobox["p" + player.playerID].self, { className: "-=powerup", immediateRender: false });
         }
         tl.add(tweenContentAsNumber($info.infobox["p" + player.playerID].remaining, delta > 0 ? "+=" + delta : "-=" + -delta), 0);
         player.powerUpLeft += delta;
@@ -1053,6 +1090,10 @@ var $ui = {
     panSettings: null,
     lblFPS: null,
     prgbarLoading: null,
+    dInfoboxContainer: null,
+    dResult: null,
+    panControl: null,
+    txtTaunt: null
 }, $info = {
     self: null,
     turnid: null,
@@ -1085,6 +1126,9 @@ var $ui = {
     }
 };
 var $strengthDeltas = [];
+var $tauntBubbles = [];
+var $outerProgressbar;
+//#region 引擎
 var Engine = (function () {
     function Engine(finishCallback) {
         var _this = this;
@@ -1108,12 +1152,18 @@ var Engine = (function () {
         this.mouseCoord = new THREE.Vector2();
         this.mouseDown = false;
         this.mouseDownFirst = false;
+        this.myTurn = false;
         //return;
         var initdata;
         // 切勿用Promise……Promise的then的调用不是和resolve同步的……
         var retrieveExistingLogs = function (next) {
             if (infoProvider.isLive()) {
-                infoProvider.setReadHistoryCallback(function (displays) { return (initdata = displays[0], next(displays.slice(1))); });
+                infoProvider.setReadHistoryCallback(function (displays) {
+                    if (displays && displays.length > 0) {
+                        initdata = displays[0];
+                        next(displays.slice(1));
+                    }
+                });
                 infoProvider.setNewLogCallback(function (display) { return (initdata = display, next([])); });
             }
             else {
@@ -1188,6 +1238,7 @@ var Engine = (function () {
                 .mouseup(function () { return _this.mouseDown = false; })
                 .on('wheel', function (event) { return TweenMax.to(_this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }); });
             var keyCode2dir = {
+                32: Direction.stay,
                 37: Direction.left,
                 38: Direction.up,
                 39: Direction.right,
@@ -1211,14 +1262,8 @@ var Engine = (function () {
                         return;
                 }
                 var dir = keyCode2dir[event.keyCode];
-                if (dir !== undefined) {
-                    if (_this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
-                        var move = { action: dir, tauntText: "" };
-                        infoProvider.notifyPlayerMove(move);
-                    }
-                }
-                else
-                    _this.fullTL.timeScale(_this.fullTL.timeScale() * 2);
+                if (dir !== undefined)
+                    _this.submitDirection(dir);
             });
             _this.antialiasing = false;
             var parseLog = function (display) { return _this.fullTL.add(_this.gameField.applyChange(display)); };
@@ -1226,12 +1271,27 @@ var Engine = (function () {
             infoProvider.setNewLogCallback(parseLog);
             infoProvider.setNewRequestCallback(function (log) {
                 // 接受用户输入
+                TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
+                TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, { cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
+                _this.selectedObj = _this.gameField.players[infoProvider.getPlayerID()];
+                _this.myTurn = true;
             });
             _this.initialized = true;
             finishCallback();
         };
         retrieveExistingLogs(initAndParseLogs);
     }
+    Engine.prototype.submitDirection = function (dir) {
+        if (this.myTurn && this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
+            this.myTurn = false;
+            var move = { action: dir, tauntText: $ui.txtTaunt.val() };
+            $ui.txtTaunt.val("");
+            TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
+            TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, { cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
+            infoProvider.notifyPlayerMove(move);
+            this.selectedObj = null;
+        }
+    };
     Engine.prototype.renderTick = function () {
         if (!this.cinematic) {
             var tiltx = this.mouseCoord.x * Math.PI / 2;
@@ -1288,6 +1348,7 @@ var Engine = (function () {
             }
             this.mouseDownFirst = false;
         }
+        $outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
         this.renderer.render(this.scene, this.camera);
     };
     Engine.prototype.resetRenderer = function () {
@@ -1319,6 +1380,7 @@ var Engine = (function () {
         tl.to(letterboxes, 0.3, { scaleY: 6, ease: Power2.easeIn, yoyo: true, repeat: 1 });
         tl.add(biDirConstSet(img[0], "src", function () { return _this.screenShot; }));
         tl.to(screenShot, 0.5, { autoAlpha: 1 });
+        tl.staggerFrom(screenShot.find(".death-reason").text(comment).shatter().find("figure"), 0.3, { autoAlpha: 0, scale: 2, ease: Back.easeOut.config(3) }, 0.05);
         var left = boxOffset.left, top = boxOffset.top;
         left += infobox.width();
         top += infobox.height() / 2;
@@ -1359,15 +1421,15 @@ var Engine = (function () {
     Engine.prototype.updateActiveObjInfo = function () {
         var activeObj = this.selectedObj || this.hoveredObj;
         if (activeObj instanceof SmallFruit)
-            $ui.lblFloatingInfo.show().text("\n\u8C46\u5B50\n\u6C38\u4E45\u589E\u52A01\u529B\u91CF\n");
+            $ui.lblFloatingInfo.show().html("\n<header>\u8C46\u5B50</header>\n\u6C38\u4E45\u589E\u52A0<span>1</span>\u529B\u91CF\n");
         else if (activeObj instanceof LargeFruit)
-            $ui.lblFloatingInfo.show().text("\n\u5927\u8C46\u5B50\n\u98DF\u7528\u540E" + this.gameField.LARGE_FRUIT_DURATION + "\u56DE\u5408\u4E2D\uFF0C\u529B\u91CF\u589E\u52A0" + this.gameField.LARGE_FRUIT_ENHANCEMENT + "\n");
+            $ui.lblFloatingInfo.show().html("\n<header>\u5927\u8C46\u5B50</header>\n\u98DF\u7528\u540E<span>" + this.gameField.LARGE_FRUIT_DURATION + "</span>\u56DE\u5408\u4E2D\uFF0C\u529B\u91CF\u589E\u52A0<span>" + this.gameField.LARGE_FRUIT_ENHANCEMENT + "</span>\n");
         else if (activeObj instanceof Player) {
             var p = activeObj;
-            $ui.lblFloatingInfo.show().text("\n\u73A9\u5BB6" + p.playerID + " \u201C" + neutralize(p.playerName) + "\u201D\n\u529B\u91CF" + p.lazyvars.strength + "\uFF0C\u589E\u76CA\u5269\u4F59\u56DE\u5408" + p.lazyvars.powerUpLeft + "\n");
+            $ui.lblFloatingInfo.show().html("\n<header>\u73A9\u5BB6" + p.playerID + "</header>\n<label>\u201C" + neutralize(p.playerName) + "\u201D</label>\n\u529B\u91CF<span>" + p.lazyvars.strength + "</span>\uFF0C\u589E\u76CA\u5269\u4F59\u56DE\u5408<span>" + p.lazyvars.powerUpLeft + "</span>\n");
         }
         else if (activeObj instanceof FruitGenerator)
-            $ui.lblFloatingInfo.show().text("\n\u8C46\u5B50\u4EA7\u751F\u5668\n\u6BCF\u9694" + this.gameField.GENERATOR_INTERVAL + "\u56DE\u5408\u5411\u5468\u56F4\u4EA7\u751F\u8C46\u5B50\n");
+            $ui.lblFloatingInfo.show().html("\n<header>\u8C46\u5B50\u4EA7\u751F\u5668</header>\n\u6BCF\u9694<span>" + this.gameField.GENERATOR_INTERVAL + "</span>\u56DE\u5408\u5411\u5468\u56F4\u4EA7\u751F\u8C46\u5B50\n");
         else
             $ui.lblFloatingInfo.hide().text("...");
     };
@@ -1455,10 +1517,16 @@ var Engine = (function () {
         },
         set: function (to) {
             if (this.detailLevel !== to) {
-                if (to > 0)
+                if (to > 0) {
                     this.scene.add(this.edgeshelper);
-                else
+                    $ui.sGameScene.removeClass("low-detail");
+                    TweenMax.ticker.fps(60);
+                }
+                else {
                     this.scene.remove(this.edgeshelper);
+                    $ui.sGameScene.addClass("low-detail");
+                    TweenMax.ticker.fps(30);
+                }
             }
         },
         enumerable: true,
@@ -1483,6 +1551,7 @@ var Engine = (function () {
     });
     return Engine;
 })();
+//#endregion
 var engine;
 $(window).load(function () {
     for (var id in $ui)
@@ -1501,7 +1570,7 @@ $(window).load(function () {
             pushables.css("transform", "translateX(-" + $ui.panSettings.width() + "px)");
         pushables.toggleClass("active");
     });
-    var templateContainer = $(".infobox-container");
+    var templateContainer = $ui.dInfoboxContainer;
     for (var i = 0; i < 4; i++)
         (function (i) {
             var nodes = insertTemplate('tmpInfobox').childNodes, node;
@@ -1512,13 +1581,20 @@ $(window).load(function () {
                 }
             var infobox = $(node).addClass("p" + i).hover(function (e) {
                 if (engine && engine.initialized)
-                    engine.selectedObj = engine.gameField.players[i];
+                    engine.hoveredObj = engine.gameField.players[i];
             }, function (e) {
                 if (engine && engine.initialized)
-                    engine.selectedObj = null;
+                    engine.hoveredObj = null;
+            }).click(function (e) {
+                if (engine && engine.initialized)
+                    if (engine.selectedObj != engine.gameField.players[i])
+                        engine.selectedObj = engine.gameField.players[i];
+                    else
+                        engine.selectedObj = null;
             });
             templateContainer.append(infobox);
             $strengthDeltas[i] = $(".strength-delta.p" + i);
+            $tauntBubbles[i] = $(".bubble.p" + i);
         })(i);
     // 填充信息组件
     function fillComponents(obj, ancestor) {
@@ -1542,13 +1618,16 @@ $(window).load(function () {
         if (duration === void 0) { duration = 2; }
         var tl = new TL();
         try {
-            var view = $(window.parent.document.getElementById('dDanmakuOverlay')), viewOrigPos = view.offset(), viewOrigHeight = view.height(), viewOrigWidth = view.width(), navbarHeight = window.parent.document.getElementById('dNavbar').clientHeight, screenRealHeight = window.parent.innerHeight, screenRealWidth = window.parent.innerWidth, bodyHeight = window.parent.document.body.clientHeight, idealHeight = screenRealHeight - (bodyHeight - viewOrigHeight);
+            var $parent = $(window.parent.document);
+            var view = $parent.find('#dDanmakuOverlay'), viewOrigPos = view.offset(), viewOrigHeight = view.height(), viewOrigWidth = view.width(), navbarHeight = $parent.find('#dNavbar')[0].offsetHeight, screenRealHeight = window.parent.innerHeight, screenRealWidth = window.parent.innerWidth, bodyHeight = window.parent.document.body.offsetHeight, idealHeight = screenRealHeight - (bodyHeight - viewOrigHeight);
             var placeHolder = $("<div></div>").css({
                 height: viewOrigHeight,
                 width: viewOrigWidth
             });
             var iframe = $(window.frameElement);
             var fn = function () {
+                $parent.find("#dPlayback a:eq(0), #dPlayback a:eq(2), #dDanmakuConsole").hide();
+                $outerProgressbar = $parent.find('#prgbarStatus .progress-bar').css("transition", "none");
                 iframe.removeProp("height").css({
                     height: idealHeight,
                     width: screenRealWidth
@@ -1581,7 +1660,7 @@ $(window).load(function () {
     var fLoadExternalModels = function () { return new Promise(function (cb) {
         var manager = new THREE.LoadingManager();
         manager.onLoad = function () {
-            extGeometries.apple.rotateX(Math.PI / 2);
+            extGeometries.apple.rotateX(Math.PI / 2).scale(0.5, 0.5, 0.5);
             extGeometries.tree.rotateX(Math.PI / 2);
             extGeometries.mushroom.rotateX(Math.PI / 2);
             var treeM = extMaterials.tree;

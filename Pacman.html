@@ -181,11 +181,28 @@
 			<figure class="letterbox bottom"></figure>
 			<canvas id="mainCanvas"></canvas>
 			<div id="lblFloatingInfo">...</div>
+			<figure class="bubble p1"><span class="content">...</span></figure>
+			<figure class="bubble p2"><span class="content">...</span></figure>
+			<figure class="bubble p3"><span class="content">...</span></figure>
+			<figure class="bubble p4"><span class="content">...</span></figure>
+			<div id="dResult" data-child-centered>
+				<div class="infobox-container">
+					<header>游戏结束</header>
+				</div>
+			</div>
+			<div id="panControl">
+				<a class="control stay" onclick="engine.submitDirection(Direction.stay)">不动</a>
+				<a class="control direction up" onclick="engine.submitDirection(Direction.up)"><span class="icon-up-big"></span></a>
+				<a class="control direction right" onclick="engine.submitDirection(Direction.right)"><span class="icon-up-big"></span></a>
+				<a class="control direction down" onclick="engine.submitDirection(Direction.down)"><span class="icon-up-big"></span></a>
+				<a class="control direction left" onclick="engine.submitDirection(Direction.left)"><span class="icon-up-big"></span></a>
+			</div>
+			<input id="txtTaunt" type="text" maxlength="20" placeholder="选择方向前，可输入叫嚣文字" />
 			<figure class="strength-delta p0">+1</figure>
 			<figure class="strength-delta p1">+1</figure>
 			<figure class="strength-delta p2">+1</figure>
 			<figure class="strength-delta p3">+1</figure>
-			<div class="infobox-container">
+			<div id="dInfoboxContainer" class="infobox-container">
 				<div class="misc">
 					<figure class="turnid value-wrap">
 						<span class="label">
@@ -204,6 +221,7 @@
 				</div>
 				<template id="tmpInfobox">
 					<div class="infobox">
+						<figure class="final-score"></figure>
 						<div class="infobox-content">
 							<p class="player-name-wrap">
 								<svg viewBox="0 0 1 1" preserveAspectRatio="none">
@@ -230,7 +248,9 @@
 							</figure>
 						</div>
 						<div class="screen-shot-container">
-							<figure class="screen-shot"><img /></figure>
+							<figure class="screen-shot">
+								<span class="death-reason"></span><img />
+							</figure>
 						</div>
 					</div>
 				</template>
@@ -240,7 +260,7 @@
 			<div class="container">
 				<div class="row">
 					<label>FPS</label>
-					<span id="lblFPS">64</span>
+					<span id="lblFPS">0</span>
 				</div>
 				<div class="row">
 					<label>抗锯齿</label>
@@ -262,19 +282,32 @@
 					<input type="checkbox" onchange="engine.sound = this.checked" />
 				</div>
 				<div class="row">
-					<label><span class="icon-video"></span> 特技</label>
-					<input type="checkbox" onchange="engine.sound = this.checked" />
+					<label><span class="icon-video"></span> 开场</label>
+					<input type="checkbox" onchange="engine.intro = this.checked" />
 				</div>
 			</div>
 			<a class="show"><span class="icon-cogs"></span> 设置</a>
 		</fieldset>
-		<div id="panControl"></div>
+		<footer class="keymap">
+			<em>操作说明</em>
+			<span>回车键</span>
+			播放暂停/继续
+			<span>R 键</span>
+			反向播放
+			<span>- 键</span>
+			减速播放
+			<span>= 键</span>
+			加速播放
+			<span>上下左右键</span>
+			向指定方向移动
+			<span>空格键</span>
+			本回合不移动
+		</footer>
 	</section>
 	<script src="player_api.js"></script>
 	<link id="lnkCSS" href="Pacman/app.min.css?" rel="stylesheet" />
 	<script src="Pacman/jquery-1.9.1.min.js"></script>
 	<script src="/greensocks/TweenMax.min.js"></script>
-	<script src="Pacman/greensocks/TweenMax.min.js"></script>
 	<script src="Pacman/es6-promise.min.js"></script>
 	<script src="Pacman/three.min.js"></script>
 	<script src="Pacman/app.js"></script>

@@ -4,19 +4,20 @@
  * 使用的库：Greensocks、THREE.js
  * 已进行 Chrome 和 Firefox 的兼容性测试
  * 时间轴约定：表现和背后逻辑变量是不同时的，背后的逻辑变量只在计算时临时出现，表现需要依赖于当次计算出的逻辑变量或解析当前表现
+ * 已知bug：弹幕无法正常使用
  * 作者：zhouhy
  */
 /*
  ### 第三方资源版权声明 ###
 
-吃豆人模型：
-作者：zhouhy，工具：Blender
-可自由使用，不保留任何权利。
+	吃豆人模型：
+	作者：zhouhy，工具：Blender
+	可自由使用，不保留任何权利。
 
-苹果模型：
-Apple Low Poly #01 by Game Green is licensed under CC Attribution
-由 zhouhy 进行了顶点着色。
-https://skfb.ly/EGJ6
+	苹果模型：
+	Apple Low Poly #01 by Game Green is licensed under CC Attribution
+	由 zhouhy 进行了顶点着色。
+	https://skfb.ly/EGJ6
 
  */
 window['Promise'] = window['Promise'] || window['ES6Promise'];
@@ -270,7 +271,7 @@ class TL extends TimelineMax {
 		if (value) {
 			super.add(value, position, align, stagger);
 		} else
-			console.log("Empty insert: ", arguments);
+			console.log("Empty insert: ", this);
 		return this;
 	}
 }
@@ -597,7 +598,9 @@ abstract class GameFieldBaseLogic {
 	protected abstract generateFruitsFromGenerator(generator: FruitGenerator): TL;
 	protected abstract strengthModification(player: Player, delta: number): TL;
 	protected abstract powerUpLeftModification(player: Player, delta: number): TL;
+	protected abstract playerTaunt(player: Player, taunt: string): TL;
 	protected abstract updateDisplayInfo(): TL;
+	protected abstract showResults(scores: IPlayerToAny<number>): TL;
 
 	constructor(protected engine: Engine, initdata: IInitdata, names: string[]) {
 		this.height = initdata.height;
@@ -657,7 +660,6 @@ abstract class GameFieldBaseLogic {
 	}
 
 	public applyChange(log: IDisplayLog): TL {
-		console.log("parsing log", log);
 		let tl = new TL();
 		let i: number;
 		let _: number;
@@ -712,21 +714,25 @@ abstract class GameFieldBaseLogic {
 					);
 				} else if (change & PlayerStatusChange.ateLarge) {
 					fieldCursor.val = CellStatus.empty;
-					if (_p.powerUpLeft == 0)
+					if (_p.powerUpLeft == 0) {
+						_p.strength += this.LARGE_FRUIT_ENHANCEMENT;
 						trace.strengthDelta[_.toString()] -= this.LARGE_FRUIT_ENHANCEMENT;
+					}
 					tl.add([
 							this.propHide(_p.fieldCoord.on(this.cellProp).val),
-							this.powerUpLeftModification(_p, this.LARGE_FRUIT_DURATION)
+							this.powerUpLeftModification(_p, this.LARGE_FRUIT_DURATION - 1)
 						],
 						0.5
 					);
 				}
 
 				// 5. 大豆回合变化
-				if (_p.powerUpLeft)
+				if (_p.powerUpLeft && !(change & PlayerStatusChange.ateLarge))
 					tl.add(this.powerUpLeftModification(_p, -1), 0.5);
-				if (change & PlayerStatusChange.powerUpCancel)
+				if (change & PlayerStatusChange.powerUpCancel) {
 					trace.strengthDelta[_.toString()] += this.LARGE_FRUIT_ENHANCEMENT;
+					_p.strength -= this.LARGE_FRUIT_ENHANCEMENT;
+				}
 
 			}
 
@@ -740,6 +746,11 @@ abstract class GameFieldBaseLogic {
 
 		this.turnID++;
 		tl.add(this.updateDisplayInfo());
+
+		if (log.result) {
+			// 游戏结束啦
+			tl.add(this.showResults(log.result));
+		}
 
 		return tl;
 	}
@@ -767,7 +778,8 @@ abstract class GameFieldBaseLogic {
 	public put(obj: FieldObject, duration: number = 0) {
 		return TweenMax.to(obj.position, duration, {
 			x: this.X(obj.fieldCoord.c),
-			y: this.Y(obj.fieldCoord.r)
+			y: this.Y(obj.fieldCoord.r),
+			immediateRender: false
 		});
 	}
 	public X(c: number) {
@@ -850,13 +862,13 @@ class GameField extends GameFieldBaseLogic {
 		tl.add(biDirConstSet(dobj[0], "innerHTML", sign + delta));
 		const s = this.strengthOffsets[this.oldOrder.indexOf(player.playerID)];
 		if (sign == "-") {
-			tl.set(dobj, { className: "+=dec" });
+			tl.set(dobj, { className: "+=dec", immediateRender: false });
 			//tl.fromTo(dobj, 0.1, { autoAlpha: 0, scale: 0, x: s.left, y: s.top },
 			//	{ autoAlpha: 1, scale: 1, immediateRender: false });
 			//tl.to(dobj, 0.5, { x: e.x, ease: Power2.easeOut }, 0.601);
 			//tl.to(dobj, 0.5, { y: e.y, ease: Power2.easeIn }, 0.601);
 		} else {
-			tl.set(dobj, { className: "-=dec" });
+			tl.set(dobj, { className: "-=dec", immediateRender: false });
 		}
 		tl.call(() =>
 			TweenMax.set(dobj, this.engine.projectTo2D(this.wrapXY(player.lazyvars.fieldCoord, { z: 1 }) as any))
@@ -943,12 +955,43 @@ class GameField extends GameFieldBaseLogic {
 		}
 	}
 
+	protected playerTaunt(player: Player, taunt: string) {
+		let tl = new TL();
+		const bobj = $tauntBubbles[player.playerID];
+		tl.add(biDirConstSet(bobj.find(".content")[0], "textContent", taunt));
+		tl.call(() =>
+			TweenMax.set(bobj, this.engine.projectTo2D(this.wrapXY(player.lazyvars.fieldCoord, { z: 1 }) as any))
+		);
+		tl.fromTo(bobj, 0.2, { autoAlpha: 0, scale: 0 },
+			{ autoAlpha: 1, scale: 1, immediateRender: false, ease: Back.easeOut });
+		tl.to(bobj, 0.1, { autoAlpha: 0 }, 0.8);
+		return tl;
+	}
+
+	protected showResults(scores: IPlayerToAny<number>) {
+		let tl = new TL();
+		let $container = $ui.dResult.find(".infobox-container");
+
+		tl.add(biDirConstSet(this.engine, "cinematic", true));
+		tl.call(() => {
+			$container.find(".infobox").remove();
+			let $newBoxes = $info.self.children(".infobox").clone();
+			for (let id in scores)
+				$newBoxes.filter(`.p${id}`).find('.final-score').text(scores[id] + "分");
+			$container.append($newBoxes);
+		});
+		tl.set($ui.dResult, { display: "block", immediateRender: false });
+		tl.to($ui.dResult, 0.5, { autoAlpha: 1 });
+		tl.fromTo($container, 0.5, { scale: 0 }, { scale: 1, ease: Back.easeOut.config(0.5) }, "-=0.25");
+		return tl;
+	}
+
 	protected powerUpLeftModification(player: Player, delta: number) {
 		let tl = new TL();
 		if (player.powerUpLeft == 0 && delta > 0) {
-			tl.set($info.infobox["p" + player.playerID].self, { className: "+=powerup" });
+			tl.set($info.infobox["p" + player.playerID].self, { className: "+=powerup", immediateRender: false });
 		} else if (player.powerUpLeft + delta == 0) {
-			tl.set($info.infobox["p" + player.playerID].self, { className: "-=powerup" });
+			tl.set($info.infobox["p" + player.playerID].self, { className: "-=powerup", immediateRender: false });
 		}
 		tl.add(tweenContentAsNumber($info.infobox["p" + player.playerID].remaining, delta > 0 ? `+=${delta}` : `-=${-delta}`), 0);
 		player.powerUpLeft += delta;
@@ -1197,6 +1240,10 @@ let $ui = {
 	panSettings: <JQuery>null,
 	lblFPS: <JQuery>null,
 	prgbarLoading: <JQuery>null,
+	dInfoboxContainer: <JQuery>null,
+	dResult: <JQuery>null,
+	panControl: <JQuery>null,
+	txtTaunt: <JQuery>null
 }, $info = {
 	self: <JQuery>null,
 	turnid: <JQuery>null,
@@ -1236,7 +1283,10 @@ let $ui = {
 	}
 };
 let $strengthDeltas: JQuery[] = [];
+let $tauntBubbles: JQuery[] = [];
+let $outerProgressbar: JQuery;
 
+//#region 引擎
 class Engine {
 	public gameField: GameField;
 	public fullTL = new TL({ smoothChildTiming: true });
@@ -1290,7 +1340,12 @@ class Engine {
 		// 切勿用Promise……Promise的then的调用不是和resolve同步的……
 		let retrieveExistingLogs = (next: (logs: IDisplayLog[]) => void) => {
 			if (infoProvider.isLive()) {
-				infoProvider.setReadHistoryCallback(displays => (initdata = displays[0], next(displays.slice(1))));
+				infoProvider.setReadHistoryCallback(displays => {
+					if (displays && displays.length > 0) {
+						initdata = displays[0];
+						next(displays.slice(1));
+					}
+				});
 				infoProvider.setNewLogCallback(display => (initdata = display, next([])));
 			} else {
 				let list = infoProvider.getLogList();
@@ -1381,6 +1436,7 @@ class Engine {
 				.on('wheel', event => TweenMax.to(this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }));
 
 			let keyCode2dir = {
+				32: Direction.stay,
 				37: Direction.left,
 				38: Direction.up,
 				39: Direction.right,
@@ -1406,13 +1462,8 @@ class Engine {
 					}
 
 					let dir = keyCode2dir[event.keyCode];
-					if (dir !== undefined) {
-						if (this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
-							let move: IRequest = { action: dir, tauntText: "" };
-							infoProvider.notifyPlayerMove(move);
-						}
-					} else
-						this.fullTL.timeScale(this.fullTL.timeScale() * 2);
+					if (dir !== undefined)
+						this.submitDirection(dir);
 				});
 
 			this.antialiasing = false;
@@ -1424,6 +1475,11 @@ class Engine {
 			infoProvider.setNewLogCallback(parseLog);
 			infoProvider.setNewRequestCallback(log => {
 				// 接受用户输入
+				TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
+				TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 },
+					{ cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
+				this.selectedObj = this.gameField.players[infoProvider.getPlayerID()];
+				this.myTurn = true;
 			});
 
 			this.initialized = true;
@@ -1431,6 +1487,20 @@ class Engine {
 		};
 
 		retrieveExistingLogs(initAndParseLogs);
+	}
+
+	private myTurn = false;
+	public submitDirection(dir: Direction) {
+		if (this.myTurn && this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
+			this.myTurn = false;
+			let move: IRequest = { action: dir, tauntText: $ui.txtTaunt.val() };
+			$ui.txtTaunt.val("");
+			TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
+			TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 },
+				{ cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
+			infoProvider.notifyPlayerMove(move);
+			this.selectedObj = null;
+		}
 	}
 
 	public renderTick() {
@@ -1492,6 +1562,8 @@ class Engine {
 			this.mouseDownFirst = false;
 		}
 
+		$outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
+
 		this.renderer.render(this.scene, this.camera);
 	}
 
@@ -1527,6 +1599,8 @@ class Engine {
 		tl.to(letterboxes, 0.3, { scaleY: 6, ease: Power2.easeIn, yoyo: true, repeat: 1 });
 		tl.add(biDirConstSet(img[0], "src", () => this.screenShot));
 		tl.to(screenShot, 0.5, { autoAlpha: 1 });
+		tl.staggerFrom(screenShot.find(".death-reason").text(comment).shatter().find("figure"),
+			0.3, { autoAlpha: 0, scale: 2, ease: Back.easeOut.config(3) }, 0.05);
 
 		let { left, top } = boxOffset;
 		left += infobox.width();
@@ -1569,28 +1643,29 @@ class Engine {
 	public updateActiveObjInfo() {
 		let activeObj = this.selectedObj || this.hoveredObj;
 		if (activeObj instanceof SmallFruit)
-			$ui.lblFloatingInfo.show().text(`
-豆子
-永久增加1力量
+			$ui.lblFloatingInfo.show().html(`
+<header>豆子</header>
+永久增加<span>1</span>力量
 `
 			);
 		else if (activeObj instanceof LargeFruit)
-			$ui.lblFloatingInfo.show().text(`
-大豆子
-食用后${this.gameField.LARGE_FRUIT_DURATION}回合中，力量增加${this.gameField.LARGE_FRUIT_ENHANCEMENT}
+			$ui.lblFloatingInfo.show().html(`
+<header>大豆子</header>
+食用后<span>${this.gameField.LARGE_FRUIT_DURATION}</span>回合中，力量增加<span>${this.gameField.LARGE_FRUIT_ENHANCEMENT}</span>
 `
 			);
 		else if (activeObj instanceof Player) {
 			let p = activeObj as Player;
-			$ui.lblFloatingInfo.show().text(`
-玩家${p.playerID} “${neutralize(p.playerName)}”
-力量${p.lazyvars.strength}，增益剩余回合${p.lazyvars.powerUpLeft}
+			$ui.lblFloatingInfo.show().html(`
+<header>玩家${p.playerID}</header>
+<label>“${neutralize(p.playerName)}”</label>
+力量<span>${p.lazyvars.strength}</span>，增益剩余回合<span>${p.lazyvars.powerUpLeft}</span>
 `
 			);
 		} else if (activeObj instanceof FruitGenerator)
-			$ui.lblFloatingInfo.show().text(`
-豆子产生器
-每隔${this.gameField.GENERATOR_INTERVAL}回合向周围产生豆子
+			$ui.lblFloatingInfo.show().html(`
+<header>豆子产生器</header>
+每隔<span>${this.gameField.GENERATOR_INTERVAL}</span>回合向周围产生豆子
 `
 			);
 		else
@@ -1669,10 +1744,15 @@ class Engine {
 	}
 	public set graphicsLevel(to: number) {
 		if (this.detailLevel !== to) {
-			if (to > 0)
+			if (to > 0) {
 				this.scene.add(this.edgeshelper);
-			else
+				$ui.sGameScene.removeClass("low-detail");
+				TweenMax.ticker.fps(60);
+			} else {
 				this.scene.remove(this.edgeshelper);
+				$ui.sGameScene.addClass("low-detail");
+				TweenMax.ticker.fps(30);
+			}
 		}
 	}
 
@@ -1690,6 +1770,7 @@ class Engine {
 		}
 	}
 }
+//#endregion
 
 let engine: Engine;
 
@@ -1715,7 +1796,7 @@ $(window).load(() => {
 		pushables.toggleClass("active");
 	});
 
-	let templateContainer = $(".infobox-container");
+	let templateContainer = $ui.dInfoboxContainer;
 	for (let i = 0; i < 4; i++)
 		((i) => {
 			let nodes = insertTemplate('tmpInfobox').childNodes, node: Node;
@@ -1727,15 +1808,22 @@ $(window).load(() => {
 			let infobox = $(node).addClass("p" + i).hover(
 				e => {
 					if (engine && engine.initialized)
-						engine.selectedObj = engine.gameField.players[i];
+						engine.hoveredObj = engine.gameField.players[i];
 				},
 				e => {
 					if (engine && engine.initialized)
-						engine.selectedObj = null;
+						engine.hoveredObj = null;
 				}
-			);
+			).click(e => {
+				if (engine && engine.initialized)
+					if (engine.selectedObj != engine.gameField.players[i])
+						engine.selectedObj = engine.gameField.players[i];
+					else
+						engine.selectedObj = null;
+			});
 			templateContainer.append(infobox);
 			$strengthDeltas[i] = $(".strength-delta.p" + i);
+			$tauntBubbles[i] = $(".bubble.p" + i);
 		})(i);
 
 	// 填充信息组件
@@ -1759,14 +1847,15 @@ $(window).load(() => {
 	let breakFourthWall = (duration: number = 2) => {
 		let tl = new TL();
 		try {
-			let view = $(window.parent.document.getElementById('dDanmakuOverlay')),
+			let $parent = $(window.parent.document);
+			let view = $parent.find('#dDanmakuOverlay'),
 				viewOrigPos = view.offset(),
 				viewOrigHeight = view.height(),
 				viewOrigWidth = view.width(),
-				navbarHeight = window.parent.document.getElementById('dNavbar').clientHeight,
+				navbarHeight = $parent.find('#dNavbar')[0].offsetHeight,
 				screenRealHeight = window.parent.innerHeight,
 				screenRealWidth = window.parent.innerWidth,
-				bodyHeight = window.parent.document.body.clientHeight,
+				bodyHeight = window.parent.document.body.offsetHeight,
 				idealHeight = screenRealHeight - (bodyHeight - viewOrigHeight);
 			let placeHolder = $("<div></div>").css({
 				height: viewOrigHeight,
@@ -1774,6 +1863,10 @@ $(window).load(() => {
 			});
 			let iframe = $(window.frameElement);
 			let fn = () => {
+				$parent.find("#dPlayback a:eq(0), #dPlayback a:eq(2), #dDanmakuConsole").hide();
+				$outerProgressbar = $parent.find('#prgbarStatus .progress-bar').css(
+					"transition", "none"
+				);
 				iframe.removeProp("height").css({
 					height: idealHeight,
 					width: screenRealWidth
@@ -1805,7 +1898,7 @@ $(window).load(() => {
 	const fLoadExternalModels = () => new Promise((cb: () => void) => {
 		let manager = new THREE.LoadingManager();
 		manager.onLoad = () => {
-			extGeometries.apple.rotateX(Math.PI / 2);
+			extGeometries.apple.rotateX(Math.PI / 2).scale(0.5, 0.5, 0.5);
 			extGeometries.tree.rotateX(Math.PI / 2);
 			extGeometries.mushroom.rotateX(Math.PI / 2);
 			let treeM = extMaterials.tree as THREE.MeshPhongMaterial;
