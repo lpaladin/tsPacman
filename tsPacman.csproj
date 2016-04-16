@@ -30,6 +30,12 @@
     </Content>
     <Content Include="Pacman.html" />
     <Content Include="Pacman\envtest.html" />
+    <Content Include="Pacman\sound\end.wav" />
+    <Content Include="Pacman\sound\enhance.wav" />
+    <Content Include="Pacman\sound\exclamation.wav" />
+    <Content Include="Pacman\sound\explode.wav" />
+    <Content Include="Pacman\sound\lose-power.wav" />
+    <Content Include="Pacman\sound\pick.wav" />
     <Content Include="Pacman\textured_paper.png" />
     <Content Include="web.config" />
   </ItemGroup>
@@ -47,6 +53,8 @@
     <None Include="compilerconfig.json.defaults">
       <DependentUpon>compilerconfig.json</DependentUpon>
     </None>
+    <Content Include="Pacman\sound\1.ogg" />
+    <Content Include="Pacman\sound\2.ogg" />
     <None Include="web.Debug.config">
       <DependentUpon>web.config</DependentUpon>
     </None>
@@ -83,6 +91,7 @@
     </VisualStudio>
   </ProjectExtensions>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <TypeScriptTarget>ES5</TypeScriptTarget>
     <TypeScriptRemoveComments>false</TypeScriptRemoveComments>
     <TypeScriptSourceMap>true</TypeScriptSourceMap>
   </PropertyGroup>

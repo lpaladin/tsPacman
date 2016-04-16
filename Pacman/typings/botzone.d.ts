@@ -24,6 +24,10 @@ interface BotResultLog extends ResultLogBase {
 	debug?: any;
 }
 
+interface JQueryStatic {
+	cookie(key: string, value?: string, options?: Object): string;
+}
+
 interface JQuery {
 	shatter(): JQuery;
 	expand(): JQuery;

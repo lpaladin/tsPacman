@@ -112,6 +112,7 @@ body, section, p, div, figure, span, b, button, a {
   padding: 0; }
 
 #btnReloadCSS {
+  display: none;
   position: fixed;
   bottom: 0;
   right: 0;
@@ -282,10 +283,21 @@ body, section, p, div, figure, span, b, button, a {
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.3); }
+  #dResult .centered {
+    left: 1em;
+    right: 1em;
+    -moz-transform: translateY(-50%);
+    -ms-transform: translateY(-50%);
+    -o-transform: translateY(-50%);
+    -webkit-transform: translateY(-50%);
+    transform: translateY(-50%); }
   #dResult .infobox-container {
     padding: 1em 2em;
     background-color: #A8DBA8;
     pointer-events: none; }
+    #dResult .infobox-container .infobox {
+      display: inline-block;
+      margin: 1em 3em; }
     #dResult .infobox-container header {
       font-weight: bold;
       font-size: 2em;
@@ -352,8 +364,7 @@ body, section, p, div, figure, span, b, button, a {
     #sGameScene .canvas-container .bubble .content {
       display: block;
       white-space: nowrap;
-      background-color: #386DBD;
-      color: white;
+      color: black;
       position: relative;
       padding: 0.2em 0.5em; }
     #sGameScene .canvas-container .bubble:before {
@@ -363,13 +374,20 @@ body, section, p, div, figure, span, b, button, a {
       right: 0;
       bottom: 50%;
       left: 50%;
-      background-color: #386DBD;
       -moz-transform: skewX(-45deg);
       -ms-transform: skewX(-45deg);
       -o-transform: skewX(-45deg);
       -webkit-transform: skewX(-45deg);
       transform: skewX(-45deg);
       box-shadow: rgba(64, 64, 64, 0.4) 3px 3px 5px; }
+    #sGameScene .canvas-container .bubble.p0 .content, #sGameScene .canvas-container .bubble.p0:before {
+      background-color: #df7c7c; }
+    #sGameScene .canvas-container .bubble.p1 .content, #sGameScene .canvas-container .bubble.p1:before {
+      background-color: #7bdc7b; }
+    #sGameScene .canvas-container .bubble.p2 .content, #sGameScene .canvas-container .bubble.p2:before {
+      background-color: #8097df; }
+    #sGameScene .canvas-container .bubble.p3 .content, #sGameScene .canvas-container .bubble.p3:before {
+      background-color: #e0e17e; }
   #sGameScene #mainCanvas {
     position: absolute;
     top: 0;
@@ -420,6 +438,8 @@ body, section, p, div, figure, span, b, button, a {
     #sGameScene #lblFloatingInfo span {
       color: yellow;
       margin: 0 3px; }
+    #sGameScene #lblFloatingInfo.current-player {
+      opacity: 0.1 !important; }
   #sGameScene .strength-delta {
     position: absolute;
     top: 0;
@@ -817,10 +837,10 @@ body, section, p, div, figure, span, b, button, a {
   -moz-box-sizing: border-box;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
-  -moz-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-  -o-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-  -webkit-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-  transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  -moz-transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  -o-transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  -webkit-transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+  transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
   white-space: nowrap;
   text-align: center; }
   .infobox-container .infobox .final-score {

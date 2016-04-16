@@ -53,7 +53,6 @@ if (!window.parent || window.parent == window) {
         notifyRequestResume: function () { }
     };
 }
-infoProvider.setSize(0, 600);
 jQuery.fn.shatter = function () {
     return this.each(function () {
         var text = this.textContent;
@@ -88,6 +87,19 @@ jQuery.fn.addNumberHandle = function () {
     });
     return this;
 };
+var cookie = $.cookie("pacman");
+var settings;
+var future = new Date(Date.now() + (365 * 24 * 60 * 60 * 1000));
+function saveSettings() {
+    $.cookie("pacman", JSON.stringify(settings), { expires: future });
+}
+function xhrGetArrayBuffer(url, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = function () { return cb(xhr.response); };
+    xhr.send();
+}
 /**
  * 对已经附加数字句柄的 JQuery 对象的内容作为数字进行动画补间
  * @param obj JQuery 对象
@@ -404,12 +416,10 @@ function Face4(a, b, c, d, base) {
 //#region 外部素材
 var extGeometries = {
     tree: null,
-    mushroom: null,
     pacman: null,
     apple: null,
 }, extMaterials = {
     tree: null,
-    mushroom: null,
     pacman: null,
     apple: null,
 };
@@ -478,15 +488,18 @@ var FieldObject = (function (_super) {
 })(THREE.Mesh);
 var SmallFruit = (function (_super) {
     __extends(SmallFruit, _super);
-    function SmallFruit() {
+    function SmallFruit(fruitID) {
         _super.call(this, extGeometries.apple, new THREE.MeshLambertMaterial({ transparent: true, vertexColors: THREE.FaceColors }));
+        this.fruitID = fruitID;
     }
     return SmallFruit;
 })(FieldObject);
 var LargeFruit = (function (_super) {
     __extends(LargeFruit, _super);
     function LargeFruit() {
-        _super.call(this, extGeometries.apple, new THREE.MeshLambertMaterial({ transparent: true, vertexColors: THREE.FaceColors }));
+        var g = extGeometries.apple.clone();
+        g.scale(1.3, 1.3, 1.3);
+        _super.call(this, g, new THREE.MeshLambertMaterial({ color: 0xAAFFAA, transparent: true, vertexColors: THREE.FaceColors }));
     }
     return LargeFruit;
 })(FieldObject);
@@ -597,6 +610,7 @@ var GameFieldBaseLogic = (function () {
         // 3. 射♂豆子
         if (--this.generatorTurnLeft == 0) {
             this.generatorTurnLeft = this.GENERATOR_INTERVAL;
+            this.engine.playSound(tl, sounds.sndGenerate, 0);
             for (var _i = 0, _a = this.generators; _i < _a.length; _i++) {
                 var generator = _a[_i];
                 tl.add(this.generateFruitsFromGenerator(generator), 0);
@@ -606,6 +620,12 @@ var GameFieldBaseLogic = (function () {
             var _p = this.players[_];
             var fieldCursor = _p.fieldCoord.copy().on(this.cellStatus);
             var change = trace.change[_.toString()], action = trace.actions[_.toString()];
+            // 叫嚣
+            if (!_p.dead && log[_.toString()]) {
+                var taunt = log[_.toString()].tauntText;
+                if (taunt && taunt.length > 0)
+                    tl.add(this.playerTaunt(_p, taunt), 0);
+            }
             // 0. 非法灵魂打入地狱
             if (change & PlayerStatusChange.error) {
                 tl.add(this.playerDie(_p, log[_.toString()].reason || "INVALID_ACTION"), 0);
@@ -621,10 +641,12 @@ var GameFieldBaseLogic = (function () {
             if (!_p.dead) {
                 // 4. 吔豆子
                 if (change & PlayerStatusChange.ateSmall) {
+                    this.engine.playSound(tl, sounds.sndPick, 0.5);
                     fieldCursor.val = CellStatus.empty;
                     tl.add(this.propHide(_p.fieldCoord.on(this.cellProp).val), 0.5);
                 }
                 else if (change & PlayerStatusChange.ateLarge) {
+                    this.engine.playSound(tl, sounds.sndEnhance, 0.5);
                     fieldCursor.val = CellStatus.empty;
                     if (_p.powerUpLeft == 0) {
                         _p.strength += this.LARGE_FRUIT_ENHANCEMENT;
@@ -641,6 +663,7 @@ var GameFieldBaseLogic = (function () {
                 if (change & PlayerStatusChange.powerUpCancel) {
                     trace.strengthDelta[_.toString()] += this.LARGE_FRUIT_ENHANCEMENT;
                     _p.strength -= this.LARGE_FRUIT_ENHANCEMENT;
+                    this.engine.playSound(tl, sounds.sndLosePower, 0.5);
                 }
             }
             // *. 力量变化
@@ -707,7 +730,7 @@ var GameField = (function (_super) {
         this.infoHeight = $info.infobox["p1"].self.offset().top - $info.infobox["p0"].self.offset().top;
         this.strengthOffsets = this.oldOrder.map(function (i) { return $info.infobox["p" + i].strength.offset(); });
         this.infoOffsets = this.oldOrder.map(function (i) { return $info.infobox["p" + i].self.offset(); });
-        this.smallFruitsIndex = 0;
+        this.freeFruits = [];
         for (var _ = 0; _ < MAX_PLAYER_COUNT; _++) {
             $info.infobox["p" + _].powerupamount.text("+" + this.LARGE_FRUIT_ENHANCEMENT);
             $info.infobox["p" + _].self.find(".player-name").html((_ + 1) + "\u53F7\u73A9\u5BB6 <b>" + neutralize(n[_]) + "</b>");
@@ -716,10 +739,11 @@ var GameField = (function (_super) {
     GameField.prototype.initializeProps = function (scene) {
         this.smallFruits = new Array(this.height * this.width);
         for (var i = 0; i < this.smallFruits.length; i++) {
-            var fruit = new SmallFruit();
+            var fruit = new SmallFruit(i);
             fruit.visible = false;
             scene.add(fruit);
             this.smallFruits[i] = fruit;
+            this.freeFruits.push(i);
         }
         for (var i = 0; i < this.height; i++)
             for (var j = 0; j < this.width; j++) {
@@ -751,9 +775,15 @@ var GameField = (function (_super) {
     };
     Object.defineProperty(GameField.prototype, "newSmallFruit", {
         get: function () {
-            var fruit = this.smallFruits[this.smallFruitsIndex];
-            this.smallFruitsIndex = (this.smallFruitsIndex + 1) % (this.height * this.width);
+            var fruit = this.smallFruits[this.freeFruits.pop()];
             return fruit;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(GameField.prototype, "freeFruit", {
+        set: function (fruit) {
+            this.freeFruits.unshift(fruit.fruitID);
         },
         enumerable: true,
         configurable: true
@@ -780,7 +810,10 @@ var GameField = (function (_super) {
         tl.to(dobj, 0.5, { y: s.top, ease: Power2.easeOut }, 0.601);
         tl.to(dobj, 0.1, { autoAlpha: 0 });
         tl.add(tweenContentAsNumber(obj, sign + "=" + delta));
-        player.strength += delta;
+        if (sign == "-")
+            player.strength -= delta;
+        else
+            player.strength += delta;
         tl.add(biDirConstSet(player.lazyvars, "strength", player.strength));
         tl.add(biDirConstSet(this, "updateInfoTrigger", undefined));
         return tl;
@@ -799,22 +832,26 @@ var GameField = (function (_super) {
             tl.add(tweenContentAsNumber($info.alivecount, _this.aliveCount), 0);
             tl.add(tweenContentAsNumber($info.turnid, _this.turnID), 0);
             // 改变左侧顺序
+            var offsets = [];
             for (var rank = 0; rank < newOrder.length; rank++)
-                tl.set($info.infobox["p" + newOrder[rank]].self, {
-                    y: (rank - oldOrder.indexOf(newOrder[rank])) * _this.infoHeight,
-                    immediateRender: false
+                tl.to($info.infobox["p" + newOrder[rank]].self, 0.3, {
+                    y: offsets[newOrder[rank]] = (rank - oldOrder.indexOf(newOrder[rank])) * _this.infoHeight
                 }, 0);
             tl.to({}, 0.001, {
                 onComplete: function () {
                     for (var _i = 0; _i < newOrder.length; _i++) {
                         var i = newOrder[_i];
-                        $info.self.append($info.infobox["p" + i].self.removeProp("style"));
+                        var box = $info.infobox["p" + i].self;
+                        TweenMax.set(box, { y: 0 });
+                        $info.self.append(box);
                     }
                 },
                 onReverseComplete: function () {
                     for (var _i = 0; _i < oldOrder.length; _i++) {
                         var i = oldOrder[_i];
-                        $info.self.append($info.infobox["p" + i].self.removeProp("style"));
+                        var box = $info.infobox["p" + i].self;
+                        //TweenMax.set(box, { y: offsets[i] });
+                        $info.self.append(box);
                     }
                 }
             });
@@ -827,6 +864,7 @@ var GameField = (function (_super) {
         this.aliveCount--;
         pull(player.fieldCoord.on(this.cellPlayer).val, player);
         var tl = new TL();
+        this.engine.playSound(tl, sounds.sndExplode, 0);
         tl.to(player.position, 0.5, { z: 3 }, "-=0.5");
         tl.to(player.scale, 0.5, { x: 3, y: 3, z: 3 }, "-=0.5");
         tl.to(player.material, 0.25, { opacity: 0.5 }, "-=0.25");
@@ -845,6 +883,8 @@ var GameField = (function (_super) {
             tl.add(biDirConstSet(obj.val, "visible", false));
             obj.val = undefined;
             obj.on(this.cellStatus).val = CellStatus.empty;
+            if (prop instanceof SmallFruit)
+                this.freeFruit = prop;
             return tl;
         }
     };
@@ -852,6 +892,7 @@ var GameField = (function (_super) {
         var _this = this;
         var tl = new TL();
         var bobj = $tauntBubbles[player.playerID];
+        this.engine.playSound(tl, sounds.sndExclamation, 0);
         tl.add(biDirConstSet(bobj.find(".content")[0], "textContent", taunt));
         tl.call(function () {
             return TweenMax.set(bobj, _this.engine.projectTo2D(_this.wrapXY(player.lazyvars.fieldCoord, { z: 1 })));
@@ -863,6 +904,7 @@ var GameField = (function (_super) {
     GameField.prototype.showResults = function (scores) {
         var tl = new TL();
         var $container = $ui.dResult.find(".infobox-container");
+        this.engine.playSound(tl, sounds.sndEnd, 0);
         tl.add(biDirConstSet(this.engine, "cinematic", true));
         tl.call(function () {
             $container.find(".infobox").remove();
@@ -909,6 +951,7 @@ var GameField = (function (_super) {
             tl.fromTo(player.position, 0.2, { z: 0 }, { z: 2, ease: Power2.easeOut, yoyo: true, repeat: 1, immediateRender: false }, 0.1);
             tl.add(this.put(player, 0.4), 0.1);
             if (player.fieldCoord.round()) {
+                this.engine.playSound(tl, sounds.sndWarp, 0.2);
                 tl.to(player.material, 0.1, { opacity: 0, yoyo: true, repeat: 1 }, 0.2);
                 player.fieldCoord.moveOpposite(dir);
                 var s = this.wrapXY(player.fieldCoord), e = this.wrapXY(player.fieldCoord.move(dir));
@@ -926,6 +969,8 @@ var GameField = (function (_super) {
      * @param dir 方向
      */
     GameField.prototype.testMove = function (playerid, dir) {
+        if (dir == Direction.stay)
+            return true;
         var startCell = this.players[playerid].fieldCoord;
         if (dir == Direction.up)
             return !startCell.on(this.horizontalWalls).val;
@@ -955,6 +1000,7 @@ var GameField = (function (_super) {
                 fruit.fieldCoord = target.copy();
                 target.on(this.cellStatus).val = CellStatus.smallFruit;
                 tl.add(biDirConstSet(fruit, "visible", true), j * 0.1);
+                tl.set(fruit.material, { opacity: 1, immediateRender: false });
                 tl.fromTo(fruit.position, 0.5, this.wrapXY(generator.fieldCoord), this.wrapXY(target, { immediateRender: false }), j * 0.1);
                 // 这里使用 0.01 是为了防止 THREE.js 报矩阵不满秩的 Warning
                 tl.fromTo(fruit.scale, 0.5, { x: 0.01, y: 0.01, z: 0.01 }, { x: 1, y: 1, z: 1, immediateRender: false }, j * 0.1);
@@ -984,7 +1030,7 @@ var GameField = (function (_super) {
     GameField.prototype.createFloor = function (wallThickness) {
         var gridSize = 1;
         var geometry = new THREE.Geometry();
-        var totalHeight = gridSize * this.height + wallThickness, totalWidth = gridSize * this.width + wallThickness;
+        var totalHeight = gridSize * this.height, totalWidth = gridSize * this.width;
         var noTextureUV = [zeroVector2, zeroVector2, zeroVector2];
         geometry.vertices.push(new THREE.Vector3(totalWidth / -2, totalHeight / -2, -wallThickness), new THREE.Vector3(totalWidth / 2, totalHeight / -2, -wallThickness), new THREE.Vector3(totalWidth / -2, totalHeight / 2, -wallThickness), new THREE.Vector3(totalWidth / 2, totalHeight / 2, -wallThickness), new THREE.Vector3(totalWidth / -2, totalHeight / -2, 0), new THREE.Vector3(totalWidth / 2, totalHeight / -2, 0), new THREE.Vector3(totalWidth / -2, totalHeight / 2, 0), new THREE.Vector3(totalWidth / 2, totalHeight / 2, 0));
         (_a = geometry.faces).push.apply(_a, Face4(4, 5, 7, 6).concat(Face4(2, 3, 1, 0), Face4(0, 1, 5, 4), Face4(4, 6, 2, 0), Face4(1, 3, 7, 5), Face4(2, 6, 7, 3)));
@@ -1093,7 +1139,13 @@ var $ui = {
     dInfoboxContainer: null,
     dResult: null,
     panControl: null,
-    txtTaunt: null
+    txtTaunt: null,
+    chkAntiAliasing: null,
+    radHighGraphicsLevel: null,
+    radLowGraphicsLevel: null,
+    chkIntro: null,
+    chkOrthographic: null,
+    chkSound: null
 }, $info = {
     self: null,
     turnid: null,
@@ -1124,6 +1176,17 @@ var $ui = {
             self: null
         }
     }
+}, sounds = {
+    sndBGM1: null,
+    sndBGM2: null,
+    sndEnd: null,
+    sndEnhance: null,
+    sndExclamation: null,
+    sndExplode: null,
+    sndLosePower: null,
+    sndPick: null,
+    sndGenerate: null,
+    sndWarp: null
 };
 var $strengthDeltas = [];
 var $tauntBubbles = [];
@@ -1236,7 +1299,11 @@ var Engine = (function () {
             })
                 .mousedown(function () { return (_this.mouseDown = true, _this.mouseDownFirst = true); })
                 .mouseup(function () { return _this.mouseDown = false; })
-                .on('wheel', function (event) { return TweenMax.to(_this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }); });
+                .on('wheel', function (event) {
+                if (!_this.orthographic) {
+                    TweenMax.to(_this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) });
+                }
+            });
             var keyCode2dir = {
                 32: Direction.stay,
                 37: Direction.left,
@@ -1264,17 +1331,37 @@ var Engine = (function () {
                 var dir = keyCode2dir[event.keyCode];
                 if (dir !== undefined)
                     _this.submitDirection(dir);
+            })
+                .on('beforeunload', function (e) {
+                if (settings.musicProgress.id == 0)
+                    settings.musicProgress.time = sounds.sndBGM1.currentTime;
+                else
+                    settings.musicProgress.time = sounds.sndBGM2.currentTime;
+                saveSettings();
             });
-            _this.antialiasing = false;
+            sounds.sndBGM1.onended = function (e) {
+                settings.musicProgress.id = 1;
+                sounds.sndBGM2.play();
+            };
+            sounds.sndBGM2.onended = function (e) {
+                settings.musicProgress.id = 0;
+                sounds.sndBGM1.play();
+            };
+            _this.useOrthographic = settings.orthographic;
+            _this.antialiasing = settings.antialiasing;
+            _this.graphicsLevel = settings.graphicsLevel;
+            _this.sound = settings.sound;
             var parseLog = function (display) { return _this.fullTL.add(_this.gameField.applyChange(display)); };
             logs.forEach(parseLog);
             infoProvider.setNewLogCallback(parseLog);
             infoProvider.setNewRequestCallback(function (log) {
                 // 接受用户输入
+                TweenMax.to(_this.fullTL, 1.5, { time: _this.fullTL.duration() });
                 TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
                 TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, { cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
                 _this.selectedObj = _this.gameField.players[infoProvider.getPlayerID()];
                 _this.myTurn = true;
+                $ui.lblFloatingInfo.addClass("current-player");
             });
             _this.initialized = true;
             finishCallback();
@@ -1284,22 +1371,31 @@ var Engine = (function () {
     Engine.prototype.submitDirection = function (dir) {
         if (this.myTurn && this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
             this.myTurn = false;
+            $ui.lblFloatingInfo.removeClass("current-player");
             var move = { action: dir, tauntText: $ui.txtTaunt.val() };
             $ui.txtTaunt.val("");
-            TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
-            TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, { cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
+            TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 1 }, { autoAlpha: 0 });
+            TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
             infoProvider.notifyPlayerMove(move);
             this.selectedObj = null;
         }
     };
     Engine.prototype.renderTick = function () {
-        if (!this.cinematic) {
-            var tiltx = this.mouseCoord.x * Math.PI / 2;
-            var tilty = this.mouseCoord.y * Math.PI / 2;
-            // 鼠标控制视角
-            this.camera.position.x = Math.sin(tiltx) * this.fieldMaxWidth;
-            this.camera.position.y = Math.sin(tilty) * this.fieldMaxHeight;
-            this.camera.lookAt(zeroVector3);
+        if (!this.cinematic && this.graphicsLevel > 0) {
+            if (this.orthographic) {
+                var tiltx = this.mouseCoord.x * Math.PI / 8;
+                var tilty = this.mouseCoord.y * Math.PI / 8;
+                // 鼠标控制视角
+                this.camera.rotation.set(-tilty, tiltx, 0);
+            }
+            else {
+                var tiltx = this.mouseCoord.x * Math.PI / 2;
+                var tilty = this.mouseCoord.y * Math.PI / 2;
+                // 鼠标控制视角
+                this.camera.position.x = Math.sin(tiltx) * this.fieldMaxWidth;
+                this.camera.position.y = Math.sin(tilty) * this.fieldMaxHeight;
+                this.camera.lookAt(zeroVector3);
+            }
             // 查找鼠标指向的物件
             this.raycaster.setFromCamera(this.mouseCoord, this.camera);
             var intersects = this.raycaster.intersectObjects(this.scene.childrenExcludingHelpers);
@@ -1341,14 +1437,15 @@ var Engine = (function () {
                         }
                     }
             }
-            var activeObj = this.selectedObj || this.hoveredObj;
-            if (activeObj) {
-                var _c = this.projectTo2D(activeObj.position), x = _c.x, y = _c.y;
-                $ui.lblFloatingInfo.css("transform", "translate(" + x + "px," + y + "px)");
-            }
             this.mouseDownFirst = false;
         }
-        $outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
+        var activeObj = this.selectedObj || this.hoveredObj;
+        if (activeObj) {
+            var _c = this.projectTo2D(activeObj.position), x = _c.x, y = _c.y;
+            $ui.lblFloatingInfo.css("transform", "translate(" + x + "px," + y + "px)");
+        }
+        if (!this.myTurn)
+            $outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
         this.renderer.render(this.scene, this.camera);
     };
     Engine.prototype.resetRenderer = function () {
@@ -1366,9 +1463,15 @@ var Engine = (function () {
         this.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: this.antialiasing });
         this.renderer.setSize(this.dispWidth, this.dispHeight);
         this.renderer.setClearColor(0xe8f4d6, 1);
-        this.camera = new THREE.PerspectiveCamera(50, this.dispWidth / this.dispHeight);
-        this.camera.position.set(0, 0, 15);
-        this.camera.lookAt(this.scene.position);
+        if (this.orthographic) {
+            var ratio = this.dispWidth / this.dispHeight, h = (this.gameField.height + 1) / 2, w = h * ratio;
+            this.camera = new THREE.OrthographicCamera(-w, w, h, -h, -30, 30);
+        }
+        else {
+            this.camera = new THREE.PerspectiveCamera(50, this.dispWidth / this.dispHeight);
+            this.camera.position.set(0, 0, 12);
+            this.camera.lookAt(this.scene.position);
+        }
     };
     Engine.prototype.shutterAndDropScreenShot = function (toID, boxOffset, comment) {
         var _this = this;
@@ -1405,8 +1508,8 @@ var Engine = (function () {
             scale: this.dispHeight / 2 / imgOrigHeight
         });
         tl.set(infobox, { className: "+=dead" }, "-=0.3");
-        tl.to(infobox, 0.075, { scale: 0.8, y: 0 }, "-=0.15");
-        tl.to(infobox, 0.075, { scale: 1, y: 0, clearProps: "transform" }, "-=0.075");
+        tl.to(infobox, 0.075, { scale: 0.9 }, "-=0.225");
+        tl.to(infobox, 0.075, { scale: 1 }, "-=0.15");
         return tl;
     };
     Engine.prototype.projectTo2D = function (_a) {
@@ -1417,6 +1520,10 @@ var Engine = (function () {
             x: Math.round((1 + coord.x) * this.dispWidth / 2),
             y: Math.round((1 - coord.y) * this.dispHeight / 2)
         };
+    };
+    Engine.prototype.playSound = function (tl, audio, at) {
+        var _this = this;
+        tl.call(function () { return _this.sound && audio.play(); }, null, null, at);
     };
     Engine.prototype.updateActiveObjInfo = function () {
         var activeObj = this.selectedObj || this.hoveredObj;
@@ -1506,6 +1613,10 @@ var Engine = (function () {
             if (this.enableAA !== to) {
                 this.enableAA = to;
                 this.resetRenderer();
+                if (this.initialized) {
+                    settings.antialiasing = to;
+                    saveSettings();
+                }
             }
         },
         enumerable: true,
@@ -1526,6 +1637,74 @@ var Engine = (function () {
                     this.scene.remove(this.edgeshelper);
                     $ui.sGameScene.addClass("low-detail");
                     TweenMax.ticker.fps(30);
+                    this.camera.position.set(0, 0, 12);
+                    this.camera.lookAt(zeroVector3);
+                }
+                this.detailLevel = to;
+                if (this.initialized) {
+                    settings.graphicsLevel = to;
+                    saveSettings();
+                }
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Engine.prototype, "intro", {
+        set: function (to) {
+            if (this.initialized) {
+                settings.intro = to;
+                saveSettings();
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Engine.prototype, "sound", {
+        get: function () {
+            return this.enableSound;
+        },
+        set: function (to) {
+            if (this.enableSound !== to) {
+                this.enableSound = to;
+                if (to) {
+                    if (settings.musicProgress.id == 0) {
+                        sounds.sndBGM1.currentTime = settings.musicProgress.time;
+                        sounds.sndBGM1.play();
+                    }
+                    else {
+                        sounds.sndBGM2.currentTime = settings.musicProgress.time;
+                        sounds.sndBGM2.play();
+                    }
+                }
+                else {
+                    if (settings.musicProgress.id == 0)
+                        settings.musicProgress.time = sounds.sndBGM1.currentTime;
+                    else
+                        settings.musicProgress.time = sounds.sndBGM2.currentTime;
+                    for (var id in sounds)
+                        sounds[id].pause();
+                }
+                if (this.initialized) {
+                    settings.sound = to;
+                    saveSettings();
+                }
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Engine.prototype, "orthographic", {
+        get: function () {
+            return this.useOrthographic;
+        },
+        set: function (to) {
+            if (this.useOrthographic !== to) {
+                this.useOrthographic = to;
+                this.resetRenderer();
+                if (this.initialized) {
+                    settings.orthographic = to;
+                    saveSettings();
                 }
             }
         },
@@ -1556,6 +1735,8 @@ var engine;
 $(window).load(function () {
     for (var id in $ui)
         $ui[id] = $("#" + id);
+    for (var id in sounds)
+        sounds[id] = document.getElementById(id);
     // 处理 data-child-centered 元素的居中样式
     $("[data-child-centered]").each(function () {
         $(this).children().wrapAll('<div class="centered"></div>');
@@ -1662,7 +1843,6 @@ $(window).load(function () {
         manager.onLoad = function () {
             extGeometries.apple.rotateX(Math.PI / 2).scale(0.5, 0.5, 0.5);
             extGeometries.tree.rotateX(Math.PI / 2);
-            extGeometries.mushroom.rotateX(Math.PI / 2);
             var treeM = extMaterials.tree;
             treeM.shading = THREE.FlatShading;
             treeM.vertexColors = THREE.FaceColors;
@@ -1767,14 +1947,48 @@ $(window).load(function () {
         });
         return new Promise(function (r) { return engine = new Engine(r); }); // 千万要在场景初始化好后再执行！
     };
+    try {
+        settings = JSON.parse(cookie);
+    }
+    catch (ex) {
+        settings = {};
+    }
+    var defaults = {
+        antialiasing: false,
+        graphicsLevel: 1,
+        intro: true,
+        orthographic: false,
+        sound: true,
+        musicProgress: {
+            id: 0,
+            time: 0
+        }
+    };
+    for (var i in defaults)
+        if (settings[i] === undefined)
+            settings[i] = defaults[i];
+    if (settings.intro)
+        settings.intro = !confirm("是否要跳过开场动画？\n\n你可以在右上角的设置中随时更改。");
+    saveSettings();
+    $ui.chkAntiAliasing[0].checked = settings.antialiasing;
+    if (settings.graphicsLevel == 0)
+        $ui.radLowGraphicsLevel[0].checked = true;
+    else
+        $ui.radHighGraphicsLevel[0].checked = true;
+    $ui.chkIntro[0].checked = settings.intro;
+    $ui.chkOrthographic[0].checked = settings.orthographic;
+    $ui.chkSound[0].checked = settings.sound;
     var fFinalInitializations = function () {
     };
-    new Promise(function (r) {
+    var p = new Promise(function (r) {
         infoProvider.notifyFinishedLoading();
         r();
-    })
-        .then(fLoadExternalModels)
-        .then(fBreakFourthWallAgain)
+    }).then(fLoadExternalModels);
+    if (settings.intro)
+        p = p.then(fOpening);
+    else
+        p = p.then(fBreakFourthWallAgain);
+    p
         .then(fCreateScene)
         .then(fFinalInitializations)
         .catch(function (err) { return console.error(err); });

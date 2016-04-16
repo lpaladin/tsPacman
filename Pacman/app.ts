@@ -52,8 +52,6 @@ if (!window.parent || window.parent == window) {
 	};
 }
 
-infoProvider.setSize(0, 600);
-
 jQuery.fn.shatter = function (): JQuery {
 	return this.each(function () {
 		let text: string = this.textContent;
@@ -88,6 +86,24 @@ jQuery.fn.addNumberHandle = function (): JQuery {
 		set: v => dom.innerHTML = (dom["_realNumber"] = Math.round(v)).toString()
 	});
 	return this;
+}
+
+let cookie = $.cookie("pacman");
+let settings: ICookieSettings;
+let future = new Date(Date.now() + (365 * 24 * 60 * 60 * 1000));
+
+function saveSettings() {
+	$.cookie("pacman", JSON.stringify(settings), { expires: future });
+}
+
+function xhrGetArrayBuffer(url: string, cb: (data: ArrayBuffer) => void) {
+	let xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.responseType = 'arraybuffer';
+
+	xhr.onload = () => cb(xhr.response);
+
+	xhr.send();
 }
 
 /**
@@ -429,13 +445,11 @@ function Face4(a: number, b: number, c: number, d: number, base: number = 0): TH
 //#region 外部素材
 let extGeometries = {
 	tree: <THREE.Geometry>null,
-	mushroom: <THREE.Geometry>null,
 	pacman: <THREE.Geometry>null,
 	apple: <THREE.Geometry>null,
 },
 	extMaterials = {
 		tree: <THREE.Material>null,
-		mushroom: <THREE.Material>null,
 		pacman: <THREE.Material>null,
 		apple: <THREE.Material>null,
 	};
@@ -475,6 +489,18 @@ interface ITrace {
 interface IDisplayLog extends IPlayerToAny<IRequest> {
 	trace?: ITrace;
 	result?: IPlayerToAny<number>;
+}
+
+interface ICookieSettings {
+	intro: boolean;
+	antialiasing: boolean;
+	graphicsLevel: number;
+	orthographic: boolean;
+	sound: boolean;
+	musicProgress: {
+		id: number;
+		time: number;
+	};
 }
 
 enum PlayerStatusChange {
@@ -525,7 +551,7 @@ abstract class FieldObject extends THREE.Mesh {
 }
 
 class SmallFruit extends FieldObject {
-	constructor() {
+	constructor(public fruitID: number) {
 		super(
 			extGeometries.apple,
 			new THREE.MeshLambertMaterial({ transparent: true, vertexColors: THREE.FaceColors })
@@ -535,9 +561,11 @@ class SmallFruit extends FieldObject {
 
 class LargeFruit extends FieldObject {
 	constructor() {
+		let g = extGeometries.apple.clone();
+		g.scale(1.3, 1.3, 1.3);
 		super(
-			extGeometries.apple,
-			new THREE.MeshLambertMaterial({ transparent: true, vertexColors: THREE.FaceColors })
+			g,
+			new THREE.MeshLambertMaterial({ color: 0xAAFFAA, transparent: true, vertexColors: THREE.FaceColors })
 		);
 	}
 }
@@ -672,6 +700,7 @@ abstract class GameFieldBaseLogic {
 		// 3. 射♂豆子
 		if (--this.generatorTurnLeft == 0) {
 			this.generatorTurnLeft = this.GENERATOR_INTERVAL;
+			this.engine.playSound(tl, sounds.sndGenerate, 0);
 			for (let generator of this.generators)
 				tl.add(
 					this.generateFruitsFromGenerator(generator),
@@ -684,6 +713,13 @@ abstract class GameFieldBaseLogic {
 			let fieldCursor = _p.fieldCoord.copy().on(this.cellStatus);
 			let change: PlayerStatusChange = trace.change[_.toString()],
 				action: Direction = trace.actions[_.toString()];
+
+			// 叫嚣
+			if (!_p.dead && log[_.toString()]) {
+				let taunt: string = log[_.toString()].tauntText;
+				if (taunt && taunt.length > 0)
+					tl.add(this.playerTaunt(_p, taunt), 0);
+			}
 
 			// 0. 非法灵魂打入地狱
 			if (change & PlayerStatusChange.error) {
@@ -707,12 +743,14 @@ abstract class GameFieldBaseLogic {
 			if (!_p.dead) {
 				// 4. 吔豆子
 				if (change & PlayerStatusChange.ateSmall) {
+					this.engine.playSound(tl, sounds.sndPick, 0.5);
 					fieldCursor.val = CellStatus.empty;
 					tl.add(
 						this.propHide(_p.fieldCoord.on(this.cellProp).val),
 						0.5
 					);
 				} else if (change & PlayerStatusChange.ateLarge) {
+					this.engine.playSound(tl, sounds.sndEnhance, 0.5);
 					fieldCursor.val = CellStatus.empty;
 					if (_p.powerUpLeft == 0) {
 						_p.strength += this.LARGE_FRUIT_ENHANCEMENT;
@@ -732,6 +770,7 @@ abstract class GameFieldBaseLogic {
 				if (change & PlayerStatusChange.powerUpCancel) {
 					trace.strengthDelta[_.toString()] += this.LARGE_FRUIT_ENHANCEMENT;
 					_p.strength -= this.LARGE_FRUIT_ENHANCEMENT;
+					this.engine.playSound(tl, sounds.sndLosePower, 0.5);
 				}
 
 			}
@@ -811,14 +850,14 @@ class GameField extends GameFieldBaseLogic {
 	}
 
 	private smallFruits: SmallFruit[];
-	private smallFruitsIndex = 0;
 	public initializeProps(scene: PScene) {
 		this.smallFruits = new Array(this.height * this.width);
 		for (let i = 0; i < this.smallFruits.length; i++) {
-			let fruit = new SmallFruit();
+			let fruit = new SmallFruit(i);
 			fruit.visible = false;
 			scene.add(fruit);
 			this.smallFruits[i] = fruit;
+			this.freeFruits.push(i);
 		}
 
 		for (let i = 0; i < this.height; i++)
@@ -848,10 +887,13 @@ class GameField extends GameFieldBaseLogic {
 			scene.add(player);
 	}
 
+	private freeFruits: number[] = [];
 	public get newSmallFruit(): SmallFruit {
-		let fruit = this.smallFruits[this.smallFruitsIndex];
-		this.smallFruitsIndex = (this.smallFruitsIndex + 1) % (this.height * this.width);
+		let fruit = this.smallFruits[this.freeFruits.pop()];
 		return fruit;
+	}
+	public set freeFruit(fruit: SmallFruit) {
+		this.freeFruits.unshift(fruit.fruitID);
 	}
 
 	protected strengthModification(player: Player, delta: number) {
@@ -879,7 +921,10 @@ class GameField extends GameFieldBaseLogic {
 		tl.to(dobj, 0.5, { y: s.top, ease: Power2.easeOut }, 0.601);
 		tl.to(dobj, 0.1, { autoAlpha: 0 });
 		tl.add(tweenContentAsNumber(obj, sign + "=" + delta));
-		player.strength += delta;
+		if (sign == "-")
+			player.strength -= delta;
+		else
+			player.strength += delta;
 		tl.add(biDirConstSet(player.lazyvars, "strength", player.strength));
 		tl.add(biDirConstSet(this, "updateInfoTrigger", undefined));
 		return tl;
@@ -904,20 +949,26 @@ class GameField extends GameFieldBaseLogic {
 			tl.add(tweenContentAsNumber($info.turnid, this.turnID), 0);
 
 			// 改变左侧顺序
+			let offsets: number[] = [];
 			for (let rank = 0; rank < newOrder.length; rank++)
-				tl.set($info.infobox["p" + newOrder[rank]].self, {
-					y: (rank - oldOrder.indexOf(newOrder[rank])) * this.infoHeight,
-					immediateRender: false
+				tl.to($info.infobox["p" + newOrder[rank]].self, 0.3, {
+					y: offsets[newOrder[rank]] = (rank - oldOrder.indexOf(newOrder[rank])) * this.infoHeight
 				}, 0);
 
 			tl.to({}, 0.001, {
 				onComplete: () => {
-					for (let i of newOrder)
-						$info.self.append($info.infobox["p" + i].self.removeProp("style"));
+					for (let i of newOrder) {
+						let box = $info.infobox["p" + i].self;
+						TweenMax.set(box, { y: 0 });
+						$info.self.append(box);
+					}
 				},
 				onReverseComplete: () => {
-					for (let i of oldOrder)
-						$info.self.append($info.infobox["p" + i].self.removeProp("style"));
+					for (let i of oldOrder) {
+						let box = $info.infobox["p" + i].self;
+						//TweenMax.set(box, { y: offsets[i] });
+						$info.self.append(box);
+					}
 				}
 			});
 		})(this.oldOrder, newOrder);
@@ -931,6 +982,7 @@ class GameField extends GameFieldBaseLogic {
 		this.aliveCount--;
 		pull(player.fieldCoord.on(this.cellPlayer).val, player);
 		let tl = new TL();
+		this.engine.playSound(tl, sounds.sndExplode, 0);
 		tl.to(player.position, 0.5, { z: 3 }, "-=0.5");
 		tl.to(player.scale, 0.5, { x: 3, y: 3, z: 3 }, "-=0.5");
 		tl.to(player.material, 0.25, { opacity: 0.5 }, "-=0.25");
@@ -951,6 +1003,8 @@ class GameField extends GameFieldBaseLogic {
 			tl.add(biDirConstSet(obj.val, "visible", false));
 			obj.val = undefined;
 			obj.on(this.cellStatus).val = CellStatus.empty;
+			if (prop instanceof SmallFruit)
+				this.freeFruit = prop as SmallFruit;
 			return tl;
 		}
 	}
@@ -958,6 +1012,7 @@ class GameField extends GameFieldBaseLogic {
 	protected playerTaunt(player: Player, taunt: string) {
 		let tl = new TL();
 		const bobj = $tauntBubbles[player.playerID];
+		this.engine.playSound(tl, sounds.sndExclamation, 0);
 		tl.add(biDirConstSet(bobj.find(".content")[0], "textContent", taunt));
 		tl.call(() =>
 			TweenMax.set(bobj, this.engine.projectTo2D(this.wrapXY(player.lazyvars.fieldCoord, { z: 1 }) as any))
@@ -972,6 +1027,7 @@ class GameField extends GameFieldBaseLogic {
 		let tl = new TL();
 		let $container = $ui.dResult.find(".infobox-container");
 
+		this.engine.playSound(tl, sounds.sndEnd, 0);
 		tl.add(biDirConstSet(this.engine, "cinematic", true));
 		tl.call(() => {
 			$container.find(".infobox").remove();
@@ -1017,6 +1073,7 @@ class GameField extends GameFieldBaseLogic {
 			tl.fromTo(player.position, 0.2, { z: 0 }, { z: 2, ease: Power2.easeOut, yoyo: true, repeat: 1, immediateRender: false }, 0.1);
 			tl.add(this.put(player, 0.4), 0.1);
 			if (player.fieldCoord.round()) {
+				this.engine.playSound(tl, sounds.sndWarp, 0.2);
 				tl.to(player.material, 0.1, { opacity: 0, yoyo: true, repeat: 1 }, 0.2);
 				player.fieldCoord.moveOpposite(dir);
 				const s = this.wrapXY(player.fieldCoord),
@@ -1037,6 +1094,8 @@ class GameField extends GameFieldBaseLogic {
 	 * @param dir 方向
 	 */
 	public testMove(playerid: number, dir: Direction): boolean {
+		if (dir == Direction.stay)
+			return true;
 		let startCell = this.players[playerid].fieldCoord;
 		if (dir == Direction.up)
 			return !startCell.on(this.horizontalWalls).val;
@@ -1067,6 +1126,7 @@ class GameField extends GameFieldBaseLogic {
 				fruit.fieldCoord = target.copy<FieldObject>();
 				target.on(this.cellStatus).val = CellStatus.smallFruit;
 				tl.add(biDirConstSet(fruit, "visible", true), j * 0.1);
+				tl.set(fruit.material, { opacity: 1, immediateRender: false });
 				tl.fromTo(fruit.position, 0.5, this.wrapXY(generator.fieldCoord), this.wrapXY(target, { immediateRender: false }), j * 0.1);
 
 				// 这里使用 0.01 是为了防止 THREE.js 报矩阵不满秩的 Warning
@@ -1095,8 +1155,8 @@ class GameField extends GameFieldBaseLogic {
 	public createFloor(wallThickness: number) {
 		const gridSize = 1;
 		const geometry = new THREE.Geometry();
-		const totalHeight = gridSize * this.height + wallThickness,
-			totalWidth = gridSize * this.width + wallThickness;
+		const totalHeight = gridSize * this.height,
+			totalWidth = gridSize * this.width;
 		const noTextureUV = [zeroVector2, zeroVector2, zeroVector2];
 
 		geometry.vertices.push(
@@ -1243,7 +1303,13 @@ let $ui = {
 	dInfoboxContainer: <JQuery>null,
 	dResult: <JQuery>null,
 	panControl: <JQuery>null,
-	txtTaunt: <JQuery>null
+	txtTaunt: <JQuery>null,
+	chkAntiAliasing: <JQuery>null,
+	radHighGraphicsLevel: <JQuery>null,
+	radLowGraphicsLevel: <JQuery>null,
+	chkIntro: <JQuery>null,
+	chkOrthographic: <JQuery>null,
+	chkSound: <JQuery>null
 }, $info = {
 	self: <JQuery>null,
 	turnid: <JQuery>null,
@@ -1281,6 +1347,17 @@ let $ui = {
 			self: null
 		}
 	}
+}, sounds = {
+	sndBGM1: <HTMLAudioElement>null,
+	sndBGM2: <HTMLAudioElement>null,
+	sndEnd: <HTMLAudioElement>null,
+	sndEnhance: <HTMLAudioElement>null,
+	sndExclamation: <HTMLAudioElement>null,
+	sndExplode: <HTMLAudioElement>null,
+	sndLosePower: <HTMLAudioElement>null,
+	sndPick: <HTMLAudioElement>null,
+	sndGenerate: <HTMLAudioElement>null,
+	sndWarp: <HTMLAudioElement>null
 };
 let $strengthDeltas: JQuery[] = [];
 let $tauntBubbles: JQuery[] = [];
@@ -1294,6 +1371,8 @@ class Engine {
 	// 选项
 	private enableAA: boolean;
 	private detailLevel: number;
+	private enableSound: boolean;
+	private useOrthographic: boolean;
 
 	// 状态
 	private _cinematic = false;
@@ -1433,7 +1512,11 @@ class Engine {
 				})
 				.mousedown(() => (this.mouseDown = true, this.mouseDownFirst = true))
 				.mouseup(() => this.mouseDown = false)
-				.on('wheel', event => TweenMax.to(this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) }));
+				.on('wheel', event => {
+					if (!this.orthographic) {
+						TweenMax.to(this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) });
+					}
+				});
 
 			let keyCode2dir = {
 				32: Direction.stay,
@@ -1464,9 +1547,28 @@ class Engine {
 					let dir = keyCode2dir[event.keyCode];
 					if (dir !== undefined)
 						this.submitDirection(dir);
+				})
+				.on('beforeunload', e => {
+					if (settings.musicProgress.id == 0)
+						settings.musicProgress.time = sounds.sndBGM1.currentTime;
+					else
+						settings.musicProgress.time = sounds.sndBGM2.currentTime;
+					saveSettings();
 				});
 
-			this.antialiasing = false;
+			sounds.sndBGM1.onended = e => {
+				settings.musicProgress.id = 1;
+				sounds.sndBGM2.play();
+			};
+			sounds.sndBGM2.onended = e => {
+				settings.musicProgress.id = 0;
+				sounds.sndBGM1.play();
+			};
+
+			this.useOrthographic = settings.orthographic;
+			this.antialiasing = settings.antialiasing;
+			this.graphicsLevel = settings.graphicsLevel;
+			this.sound = settings.sound;
 
 			let parseLog = (display: IDisplayLog) => this.fullTL.add(this.gameField.applyChange(display));
 
@@ -1475,11 +1577,13 @@ class Engine {
 			infoProvider.setNewLogCallback(parseLog);
 			infoProvider.setNewRequestCallback(log => {
 				// 接受用户输入
+				TweenMax.to(this.fullTL, 1.5, { time: this.fullTL.duration() });
 				TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
 				TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 },
 					{ cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
 				this.selectedObj = this.gameField.players[infoProvider.getPlayerID()];
 				this.myTurn = true;
+				$ui.lblFloatingInfo.addClass("current-player");
 			});
 
 			this.initialized = true;
@@ -1493,25 +1597,34 @@ class Engine {
 	public submitDirection(dir: Direction) {
 		if (this.myTurn && this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
 			this.myTurn = false;
+			$ui.lblFloatingInfo.removeClass("current-player");
 			let move: IRequest = { action: dir, tauntText: $ui.txtTaunt.val() };
 			$ui.txtTaunt.val("");
-			TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
-			TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 },
-				{ cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
+			TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 1 }, { autoAlpha: 0 });
+			TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
 			infoProvider.notifyPlayerMove(move);
 			this.selectedObj = null;
 		}
 	}
 
 	public renderTick() {
-		if (!this.cinematic) {
-			let tiltx = this.mouseCoord.x * Math.PI / 2;
-			let tilty = this.mouseCoord.y * Math.PI / 2;
+		if (!this.cinematic && this.graphicsLevel > 0) {
 
-			// 鼠标控制视角
-			this.camera.position.x = Math.sin(tiltx) * this.fieldMaxWidth;
-			this.camera.position.y = Math.sin(tilty) * this.fieldMaxHeight;
-			this.camera.lookAt(zeroVector3);
+			if (this.orthographic) {
+				let tiltx = this.mouseCoord.x * Math.PI / 8;
+				let tilty = this.mouseCoord.y * Math.PI / 8;
+
+				// 鼠标控制视角
+				this.camera.rotation.set(-tilty, tiltx, 0);
+			} else {
+				let tiltx = this.mouseCoord.x * Math.PI / 2;
+				let tilty = this.mouseCoord.y * Math.PI / 2;
+
+				// 鼠标控制视角
+				this.camera.position.x = Math.sin(tiltx) * this.fieldMaxWidth;
+				this.camera.position.y = Math.sin(tilty) * this.fieldMaxHeight;
+				this.camera.lookAt(zeroVector3);
+			}
 
 			// 查找鼠标指向的物件
 			this.raycaster.setFromCamera(this.mouseCoord, this.camera);
@@ -1549,20 +1662,21 @@ class Engine {
 						}
 			}
 
-			let activeObj = this.selectedObj || this.hoveredObj;
-			if (activeObj) {
-				let { x, y } = this.projectTo2D(activeObj.position);
-				$ui.lblFloatingInfo.css("transform", `translate(${
-					x
-					}px,${
-					y
-					}px)`);
-			}
-
 			this.mouseDownFirst = false;
 		}
 
-		$outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
+		let activeObj = this.selectedObj || this.hoveredObj;
+		if (activeObj) {
+			let { x, y } = this.projectTo2D(activeObj.position);
+			$ui.lblFloatingInfo.css("transform", `translate(${
+				x
+				}px,${
+				y
+				}px)`);
+		}
+
+		if (!this.myTurn)
+			$outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
 
 		this.renderer.render(this.scene, this.camera);
 	}
@@ -1585,9 +1699,16 @@ class Engine {
 		this.renderer.setSize(this.dispWidth, this.dispHeight);
 		this.renderer.setClearColor(0xe8f4d6, 1);
 
-		this.camera = new THREE.PerspectiveCamera(50, this.dispWidth / this.dispHeight);
-		this.camera.position.set(0, 0, 15);
-		this.camera.lookAt(this.scene.position);
+		if (this.orthographic) {
+			let ratio = this.dispWidth / this.dispHeight,
+				h = (this.gameField.height + 1) / 2,
+				w = h * ratio;
+			this.camera = new THREE.OrthographicCamera(-w, w, h, -h, -30, 30);
+		} else {
+			this.camera = new THREE.PerspectiveCamera(50, this.dispWidth / this.dispHeight);
+			this.camera.position.set(0, 0, 12);
+			this.camera.lookAt(this.scene.position);
+		}
 	}
 
 	public shutterAndDropScreenShot(toID: number, boxOffset: JQueryCoordinates, comment: string) {
@@ -1626,8 +1747,8 @@ class Engine {
 			scale: this.dispHeight / 2 / imgOrigHeight
 		});
 		tl.set(infobox, { className: "+=dead" }, "-=0.3");
-		tl.to(infobox, 0.075, { scale: 0.8, y: 0 }, "-=0.15");
-		tl.to(infobox, 0.075, { scale: 1, y: 0, clearProps: "transform" }, "-=0.075");
+		tl.to(infobox, 0.075, { scale: 0.9 }, "-=0.225");
+		tl.to(infobox, 0.075, { scale: 1 }, "-=0.15");
 		return tl;
 	}
 
@@ -1638,6 +1759,10 @@ class Engine {
 			x: Math.round((1 + coord.x) * this.dispWidth / 2),
 			y: Math.round((1 - coord.y) * this.dispHeight / 2)
 		};
+	}
+
+	public playSound(tl: TL, audio: HTMLAudioElement, at: string | number) {
+		tl.call(() => this.sound && audio.play(), null, null, at);
 	}
 
 	public updateActiveObjInfo() {
@@ -1736,6 +1861,10 @@ class Engine {
 		if (this.enableAA !== to) {
 			this.enableAA = to;
 			this.resetRenderer();
+			if (this.initialized) {
+				settings.antialiasing = to;
+				saveSettings();
+			}
 		}
 	}
 
@@ -1752,6 +1881,66 @@ class Engine {
 				this.scene.remove(this.edgeshelper);
 				$ui.sGameScene.addClass("low-detail");
 				TweenMax.ticker.fps(30);
+				this.camera.position.set(0, 0, 12);
+				this.camera.lookAt(zeroVector3);
+			}
+			this.detailLevel = to;
+			if (this.initialized) {
+				settings.graphicsLevel = to;
+				saveSettings();
+			}
+		}
+	}
+
+	public set intro(to: boolean) {
+		if (this.initialized) {
+			settings.intro = to;
+			saveSettings();
+		}
+	}
+
+	public get sound() {
+		return this.enableSound;
+	}
+	public set sound(to: boolean) {
+		if (this.enableSound !== to) {
+			this.enableSound = to;
+
+			if (to) {
+				if (settings.musicProgress.id == 0) {
+					sounds.sndBGM1.currentTime = settings.musicProgress.time;
+					sounds.sndBGM1.play();
+				} else {
+					sounds.sndBGM2.currentTime = settings.musicProgress.time;
+					sounds.sndBGM2.play();
+				}
+			} else {
+				if (settings.musicProgress.id == 0)
+					settings.musicProgress.time = sounds.sndBGM1.currentTime;
+				else
+					settings.musicProgress.time = sounds.sndBGM2.currentTime;
+
+				for (let id in sounds)
+					sounds[id].pause();
+			}
+
+			if (this.initialized) {
+				settings.sound = to;
+				saveSettings();
+			}
+		}
+	}
+
+	public get orthographic() {
+		return this.useOrthographic;
+	}
+	public set orthographic(to: boolean) {
+		if (this.useOrthographic !== to) {
+			this.useOrthographic = to;
+			this.resetRenderer();
+			if (this.initialized) {
+				settings.orthographic = to;
+				saveSettings();
 			}
 		}
 	}
@@ -1777,6 +1966,8 @@ let engine: Engine;
 $(window).load(() => {
 	for (let id in $ui)
 		$ui[id] = $("#" + id);
+	for (let id in sounds)
+		sounds[id] = document.getElementById(id);
 
 	// 处理 data-child-centered 元素的居中样式
 	$("[data-child-centered]").each(function () {
@@ -1900,7 +2091,6 @@ $(window).load(() => {
 		manager.onLoad = () => {
 			extGeometries.apple.rotateX(Math.PI / 2).scale(0.5, 0.5, 0.5);
 			extGeometries.tree.rotateX(Math.PI / 2);
-			extGeometries.mushroom.rotateX(Math.PI / 2);
 			let treeM = extMaterials.tree as THREE.MeshPhongMaterial;
 			treeM.shading = THREE.FlatShading;
 			treeM.vertexColors = THREE.FaceColors;
@@ -2025,18 +2215,56 @@ $(window).load(() => {
 		return new Promise(r => engine = new Engine(r)); // 千万要在场景初始化好后再执行！
 	};
 
-	const fFinalInitializations = () => {
+	try {
+		settings = JSON.parse(cookie);
+	} catch (ex) {
+		settings = <any> {};
+	}
 
+	let defaults = {
+		antialiasing: false,
+		graphicsLevel: 1,
+		intro: true,
+		orthographic: false,
+		sound: true,
+		musicProgress: {
+			id: 0,
+			time: 0
+		}
+	};
+
+	for (let i in defaults)
+		if (settings[i] === undefined)
+			settings[i] = defaults[i];
+
+	if (settings.intro)
+		settings.intro = !confirm("是否要跳过开场动画？\n\n你可以在右上角的设置中随时更改。");
+	saveSettings();
+
+	(<any>$ui.chkAntiAliasing[0]).checked = settings.antialiasing;
+	if (settings.graphicsLevel == 0)
+		(<any>$ui.radLowGraphicsLevel[0]).checked = true;
+	else
+		(<any>$ui.radHighGraphicsLevel[0]).checked = true;
+	(<any>$ui.chkIntro[0]).checked = settings.intro;
+	(<any>$ui.chkOrthographic[0]).checked = settings.orthographic;
+	(<any>$ui.chkSound[0]).checked = settings.sound;
+
+	const fFinalInitializations = () => {
 
 	};
 
-	new Promise(r => {
+	let p = new Promise(r => {
 		infoProvider.notifyFinishedLoading();
 		r();
-	})
-		.then(fLoadExternalModels)
-		//.then(fOpening)
-		.then(fBreakFourthWallAgain)
+	}).then(fLoadExternalModels);
+
+	if (settings.intro)
+		p = p.then(fOpening);
+	else
+		p = p.then(fBreakFourthWallAgain);
+
+	p
 		.then(fCreateScene)
 		.then(fFinalInitializations)
 		.catch(err => console.error(err));

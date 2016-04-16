@@ -143,10 +143,25 @@
 	bottom: 0;
 	background-color: rgba(0, 0, 0, 0.3);
 
+	.centered {
+		left: 1em;
+		right: 1em;
+		-moz-transform: translateY(-50%);
+		-ms-transform: translateY(-50%);
+		-o-transform: translateY(-50%);
+		-webkit-transform: translateY(-50%);
+		transform: translateY(-50%);
+	}
+
 	.infobox-container {
 		padding: 1em 2em;
 		background-color: $theme2-4;
 		pointer-events: none;
+
+		.infobox {
+			display: inline-block;
+			margin: 1em 3em;
+		}
 
 		header {
 			font-weight: bold;
@@ -238,8 +253,7 @@
 			.content {
 				display: block;
 				white-space: nowrap;
-				background-color: $mid-blue;
-				color: white;
+				color: black;
 				position: relative;
 				padding: 0.2em 0.5em;
 			}
@@ -251,13 +265,28 @@
 				right: 0;
 				bottom: 50%;
 				left: 50%;
-				background-color: $mid-blue;
 				-moz-transform: skewX(-45deg);
 				-ms-transform: skewX(-45deg);
 				-o-transform: skewX(-45deg);
 				-webkit-transform: skewX(-45deg);
 				transform: skewX(-45deg);
 				box-shadow: rgba(64, 64, 64, 0.4) 3px 3px 5px;
+			}
+
+			&.p0 .content, &.p0:before {
+				background-color: $p0-lighten;
+			}
+
+			&.p1 .content, &.p1:before {
+				background-color: $p1-lighten;
+			}
+
+			&.p2 .content, &.p2:before {
+				background-color: $p2-lighten;
+			}
+
+			&.p3 .content, &.p3:before {
+				background-color: $p3-lighten;
 			}
 		}
 	}
@@ -321,6 +350,10 @@
 		span {
 			color: yellow;
 			margin: 0 3px;
+		}
+
+		&.current-player {
+			opacity: 0.1 !important;
 		}
 	}
 
@@ -837,10 +870,10 @@
 		-moz-box-sizing: border-box;
 		-webkit-box-sizing: border-box;
 		box-sizing: border-box;
-		-moz-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-		-o-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-		-webkit-transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
-		transition: transform ease 0.3s, filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+		-moz-transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+		-o-transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+		-webkit-transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
+		transition: filter ease 0.3s, -webkit-filter ease 0.3s, -ms-filter ease 0.3s, -moz-filter ease 0.3s;
 		white-space: nowrap;
 		text-align: center;
 		@extend %card-effect;

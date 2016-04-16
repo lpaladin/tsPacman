@@ -181,10 +181,10 @@
 			<figure class="letterbox bottom"></figure>
 			<canvas id="mainCanvas"></canvas>
 			<div id="lblFloatingInfo">...</div>
+			<figure class="bubble p0"><span class="content">...</span></figure>
 			<figure class="bubble p1"><span class="content">...</span></figure>
 			<figure class="bubble p2"><span class="content">...</span></figure>
 			<figure class="bubble p3"><span class="content">...</span></figure>
-			<figure class="bubble p4"><span class="content">...</span></figure>
 			<div id="dResult" data-child-centered>
 				<div class="infobox-container">
 					<header>游戏结束</header>
@@ -209,14 +209,14 @@
 							<span class="icon-clock"></span>
 							回合
 						</span>
-						<span class="value">2</span>
+						<span class="value">0</span>
 					</figure>
 					<figure class="alivecount value-wrap">
 						<span class="label">
 							<span class="icon-child"></span>
 							存活人数
 						</span>
-						<span class="value">3</span>
+						<span class="value">4</span>
 					</figure>
 				</div>
 				<template id="tmpInfobox">
@@ -264,26 +264,30 @@
 				</div>
 				<div class="row">
 					<label>抗锯齿</label>
-					<input type="checkbox" onchange="engine.antialiasing = this.checked" />
+					<input type="checkbox" id="chkAntiAliasing" onchange="engine.antialiasing = this.checked" />
 				</div>
 				<div class="row">
 					<label>效果等级</label>
 					<label>
-						<input type="radio" name="graphics" value="1" checked onchange="engine.graphicsLevel = this.value" />
+						<input id="radHighGraphicsLevel" type="radio" name="graphics" value="1" checked onchange="engine.graphicsLevel = this.value" />
 						高
 					</label>
 					<label>
-						<input type="radio" name="graphics" value="0" onchange="engine.graphicsLevel = this.value" />
+						<input id="radLowGraphicsLevel" type="radio" name="graphics" value="0" onchange="engine.graphicsLevel = this.value" />
 						低
 					</label>
 				</div>
 				<div class="row">
+					<label>正交投影</label>
+					<input id="chkOrthographic" type="checkbox" onchange="engine.orthographic = this.checked" />
+				</div>
+				<div class="row">
 					<label><span class="icon-music"></span> 声音</label>
-					<input type="checkbox" onchange="engine.sound = this.checked" />
+					<input id="chkSound" type="checkbox" onchange="engine.sound = this.checked" />
 				</div>
 				<div class="row">
 					<label><span class="icon-video"></span> 开场</label>
-					<input type="checkbox" onchange="engine.intro = this.checked" />
+					<input id="chkIntro" type="checkbox" onchange="engine.intro = this.checked" />
 				</div>
 			</div>
 			<a class="show"><span class="icon-cogs"></span> 设置</a>
@@ -302,14 +306,30 @@
 			向指定方向移动
 			<span>空格键</span>
 			本回合不移动
+			<span>滚轮</span>
+			放大/缩小
 		</footer>
 	</section>
 	<script src="player_api.js"></script>
+	<script>
+		infoProvider.setSize(0, 600);
+	</script>
 	<link id="lnkCSS" href="Pacman/app.min.css?" rel="stylesheet" />
-	<script src="Pacman/jquery-1.9.1.min.js"></script>
+	<script src="/javascripts/jquery-1.9.1.min.js"></script>
+	<script src="/javascripts/jquery.cookie.js"></script>
 	<script src="/greensocks/TweenMax.min.js"></script>
 	<script src="Pacman/es6-promise.min.js"></script>
 	<script src="Pacman/three.min.js"></script>
 	<script src="Pacman/app.js"></script>
+	<audio id="sndBGM1" volume="0.7" src="Pacman/sound/1.ogg" />
+	<audio id="sndBGM2" volume="0.7" src="Pacman/sound/2.ogg" />
+	<audio id="sndEnd" src="Pacman/sound/end.wav"  />
+	<audio id="sndEnhance" src="Pacman/sound/enhance.wav"  />
+	<audio id="sndExclamation" src="Pacman/sound/exclamation.wav"  />
+	<audio id="sndExplode" src="Pacman/sound/explode.wav"  />
+	<audio id="sndLosePower" src="Pacman/sound/lose-power.wav"  />
+	<audio id="sndPick" src="Pacman/sound/pick.wav"  />
+	<audio id="sndGenerate" src="Pacman/sound/generate.wav" />
+	<audio id="sndWarp" src="Pacman/sound/warp.wav" />
 </body>
 </html>
