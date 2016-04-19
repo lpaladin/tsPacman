@@ -270,6 +270,17 @@ body, section, p, div, figure, span, b, button, a {
     color: white;
     height: 0;
     width: 0; }
+  #sIntro .special-thanks {
+    font-size: 0.5em;
+    text-align: center;
+    position: absolute;
+    bottom: 1em;
+    left: 0;
+    right: 0;
+    color: white;
+    display: none; }
+    #sIntro .special-thanks figure {
+      display: inline-block; }
 
 #prgbarLoading {
   margin-top: 2em; }

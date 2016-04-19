@@ -59,7 +59,10 @@ jQuery.fn.shatter = function () {
         var result = "";
         for (var _i = 0, _a = text.trim(); _i < _a.length; _i++) {
             var x = _a[_i];
-            result += "<figure>" + x + "</figure>";
+            if (x == "" || x == " ")
+                result += "<figure>&nbsp;</figure>";
+            else
+                result += "<figure>" + x + "</figure>";
         }
         this.innerHTML = result;
     });
@@ -1286,6 +1289,7 @@ var Engine = (function () {
             _this.field = new THREE.Mesh(_this.gameField.createFloor(_this.wallThickness), new THREE.MeshLambertMaterial({ color: 0xFFFFFF, map: _this.gameField.floorTexture }));
             _this.wall = new THREE.Mesh(_this.gameField.createGeometry(_this.wallThickness, 1), new THREE.MeshLambertMaterial({ color: 0xCFF09E }));
             _this.edgeshelper = new THREE.EdgesHelper(_this.wall, 0x79BD9A);
+            _this.orthoEdgeHighlight = new THREE.EdgesHelper(_this.wall, 0x333333);
             _this.scene.add(_this.edgeshelper);
             _this.scene.add(_this.wall);
             _this.scene.add(_this.field);
@@ -1343,20 +1347,29 @@ var Engine = (function () {
                 settings.musicProgress.id = 1;
                 sounds.sndBGM2.play();
             };
+            sounds.sndBGM1.volume = 0.5;
             sounds.sndBGM2.onended = function (e) {
                 settings.musicProgress.id = 0;
                 sounds.sndBGM1.play();
             };
+            sounds.sndBGM2.volume = 0.5;
             _this.useOrthographic = settings.orthographic;
             _this.antialiasing = settings.antialiasing;
             _this.graphicsLevel = settings.graphicsLevel;
             _this.sound = settings.sound;
-            var parseLog = function (display) { return _this.fullTL.add(_this.gameField.applyChange(display)); };
+            var parseLog = function (display) {
+                if (_this.myTurn) {
+                    _this.myTurn = false;
+                    TweenMax.to($ui.txtTaunt, 0.3, { autoAlpha: 0 });
+                    TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
+                }
+                _this.fullTL.add(_this.gameField.applyChange(display));
+            };
             logs.forEach(parseLog);
             infoProvider.setNewLogCallback(parseLog);
             infoProvider.setNewRequestCallback(function (log) {
                 // 接受用户输入
-                TweenMax.to(_this.fullTL, 1.5, { time: _this.fullTL.duration() });
+                TweenMax.to(_this.fullTL, 1.5, { progress: 1, ease: Linear.easeNone });
                 TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
                 TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, { cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
                 _this.selectedObj = _this.gameField.players[infoProvider.getPlayerID()];
@@ -1374,7 +1387,7 @@ var Engine = (function () {
             $ui.lblFloatingInfo.removeClass("current-player");
             var move = { action: dir, tauntText: $ui.txtTaunt.val() };
             $ui.txtTaunt.val("");
-            TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 1 }, { autoAlpha: 0 });
+            TweenMax.to($ui.txtTaunt, 0.3, { autoAlpha: 0 });
             TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
             infoProvider.notifyPlayerMove(move);
             this.selectedObj = null;
@@ -1445,7 +1458,7 @@ var Engine = (function () {
             $ui.lblFloatingInfo.css("transform", "translate(" + x + "px," + y + "px)");
         }
         if (!this.myTurn)
-            $outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
+            $outerProgressbar.css("width", (100 * this.fullTL.progress()) + '%');
         this.renderer.render(this.scene, this.camera);
     };
     Engine.prototype.resetRenderer = function () {
@@ -1523,7 +1536,7 @@ var Engine = (function () {
     };
     Engine.prototype.playSound = function (tl, audio, at) {
         var _this = this;
-        tl.call(function () { return _this.sound && audio.play(); }, null, null, at);
+        tl.call(function () { return _this.sound && (audio.currentTime = 0, audio.play()); }, null, null, at);
     };
     Engine.prototype.updateActiveObjInfo = function () {
         var activeObj = this.selectedObj || this.hoveredObj;
@@ -1629,12 +1642,16 @@ var Engine = (function () {
         set: function (to) {
             if (this.detailLevel !== to) {
                 if (to > 0) {
+                    if (this.orthographic)
+                        this.scene.remove(this.orthoEdgeHighlight);
                     this.scene.add(this.edgeshelper);
                     $ui.sGameScene.removeClass("low-detail");
                     TweenMax.ticker.fps(60);
                 }
                 else {
                     this.scene.remove(this.edgeshelper);
+                    if (this.orthographic)
+                        this.scene.add(this.orthoEdgeHighlight);
                     $ui.sGameScene.addClass("low-detail");
                     TweenMax.ticker.fps(30);
                     this.camera.position.set(0, 0, 12);
@@ -1701,6 +1718,11 @@ var Engine = (function () {
         set: function (to) {
             if (this.useOrthographic !== to) {
                 this.useOrthographic = to;
+                if (this.graphicsLevel == 0)
+                    if (to)
+                        this.scene.add(this.orthoEdgeHighlight);
+                    else
+                        this.scene.remove(this.orthoEdgeHighlight);
                 this.resetRenderer();
                 if (this.initialized) {
                     settings.orthographic = to;
@@ -1831,6 +1853,7 @@ $(window).load(function () {
                 y: -(idealHeight - viewOrigHeight) / 2
             }, { x: 0, y: 0, immediateRender: false }, 0);
             tl.to(placeHolder, duration, { height: idealHeight }, 0);
+            tl.call(function () { return tl.kill(); });
             return tl;
         }
         catch (ex) { }
@@ -1867,7 +1890,7 @@ $(window).load(function () {
         tl.call(function () { return infoProvider.notifyRequestPause(); });
         tl.to($ui.sLoading, 0.5, { scale: 2, opacity: 0 });
         tl.call(function () { return ($ui.sLoading.hide(), $ui.sIntro.show()); });
-        var outer = $ui.sIntro.find(".intro-circle.outer"), inner = $ui.sIntro.find(".intro-circle.inner"), bkgRect = $ui.sIntro.find(".intro-line"), title = $ui.sIntro.find(".intro-title");
+        var outer = $ui.sIntro.find(".intro-circle.outer"), inner = $ui.sIntro.find(".intro-circle.inner"), bkgRect = $ui.sIntro.find(".intro-line"), title = $ui.sIntro.find(".intro-title"), specialThanks = $ui.sIntro.find(".special-thanks");
         // 内外圆形
         tl.staggerTo([outer[0], inner[0]], 2, { height: "12em", width: "12em", ease: Circ.easeInOut }, 0.5);
         tl.call(function () { return outer.hide(); });
@@ -1876,6 +1899,22 @@ $(window).load(function () {
             bkgRect.width(inner.find(".centered").width()).show();
             inner.hide();
         });
+        // 鸣谢
+        if (Math.random() < 0.3)
+            tl.call(function () {
+                var specialThanksChars = specialThanks.find("figure");
+                var subTL = new TL();
+                specialThanks.show();
+                subTL.staggerFrom(specialThanksChars, 0.2, {
+                    cycle: {
+                        y: function (i) { return Math.cos(i * Math.PI / specialThanksChars.length) * 100 + "%"; }
+                    },
+                    x: "+=100%",
+                    ease: Back.easeOut,
+                    autoAlpha: 0
+                }, 0.05);
+                subTL.to(specialThanks, 0.2, { autoAlpha: 0 });
+            }, null, null, "-=0.5");
         // 拉长矩形
         tl.fromTo(bkgRect, 0.5, { rotationX: "-90deg" }, { rotationX: "-88deg" });
         tl.to(bkgRect, 0.5, { scaleX: 3 }, "+=0.1");
@@ -1915,10 +1954,10 @@ $(window).load(function () {
         tl.call(function () { return ($ui.sGameScene.show(), bkgRect.css({ overflow: "hidden", borderColor: "white" })); });
         tl.to(bkgRect, 1, { width: 0, ease: Power2.easeIn });
         tl.to(bkgRect, 1, { scaleY: 2, y: "-100%", ease: Power2.easeOut });
-        tl.to(bkgRect, 2, { y: "100%" });
+        tl.to(bkgRect, 1, { y: "100%" });
         var p = new Promise(function (resolve) { return tl.call(resolve); });
-        tl.from($ui.sGameScene, 2, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=2");
-        tl.call(function () { return ($ui.sIntro.hide(), infoProvider.notifyRequestResume()); });
+        tl.from($ui.sGameScene, 1, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=1");
+        tl.call(function () { return ($ui.sIntro.hide(), infoProvider.notifyRequestResume(), tl.kill()); });
         return p;
     };
     // 如果之前跳过了开场……这里再调整一下场景大小

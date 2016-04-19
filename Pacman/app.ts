@@ -57,7 +57,10 @@ jQuery.fn.shatter = function (): JQuery {
 		let text: string = this.textContent;
 		let result = "";
 		for (let x of text.trim())
-			result += `<figure>${x}</figure>`;
+			if (x == "" || x == " ")
+				result += `<figure>&nbsp;</figure>`;
+			else
+				result += `<figure>${x}</figure>`;
 		this.innerHTML = result;
 	});
 };
@@ -1403,6 +1406,7 @@ class Engine {
 	private wall: THREE.Mesh;
 	private raycaster = new THREE.Raycaster();
 	private edgeshelper: THREE.EdgesHelper;
+	private orthoEdgeHighlight: THREE.EdgesHelper;
 
 	// 界面用（鼠标选择）
 	private mouseCoord = new THREE.Vector2();
@@ -1496,6 +1500,7 @@ class Engine {
 				new THREE.MeshLambertMaterial({ color: 0xCFF09E })
 			);
 			this.edgeshelper = new THREE.EdgesHelper(this.wall, 0x79BD9A);
+			this.orthoEdgeHighlight = new THREE.EdgesHelper(this.wall, 0x333333);
 			this.scene.add(this.edgeshelper);
 			this.scene.add(this.wall);
 			this.scene.add(this.field);
@@ -1560,24 +1565,33 @@ class Engine {
 				settings.musicProgress.id = 1;
 				sounds.sndBGM2.play();
 			};
+			sounds.sndBGM1.volume = 0.5;
 			sounds.sndBGM2.onended = e => {
 				settings.musicProgress.id = 0;
 				sounds.sndBGM1.play();
 			};
+			sounds.sndBGM2.volume = 0.5;
 
 			this.useOrthographic = settings.orthographic;
 			this.antialiasing = settings.antialiasing;
 			this.graphicsLevel = settings.graphicsLevel;
 			this.sound = settings.sound;
 
-			let parseLog = (display: IDisplayLog) => this.fullTL.add(this.gameField.applyChange(display));
+			let parseLog = (display: IDisplayLog) => {
+				if (this.myTurn) {
+					this.myTurn = false;
+					TweenMax.to($ui.txtTaunt, 0.3, { autoAlpha: 0 });
+					TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
+				}
+				this.fullTL.add(this.gameField.applyChange(display));
+			};
 
 			logs.forEach(parseLog);
 
 			infoProvider.setNewLogCallback(parseLog);
 			infoProvider.setNewRequestCallback(log => {
 				// 接受用户输入
-				TweenMax.to(this.fullTL, 1.5, { time: this.fullTL.duration() });
+				TweenMax.to(this.fullTL, 1.5, { progress: 1, ease: Linear.easeNone });
 				TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
 				TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 },
 					{ cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
@@ -1600,7 +1614,7 @@ class Engine {
 			$ui.lblFloatingInfo.removeClass("current-player");
 			let move: IRequest = { action: dir, tauntText: $ui.txtTaunt.val() };
 			$ui.txtTaunt.val("");
-			TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 1 }, { autoAlpha: 0 });
+			TweenMax.to($ui.txtTaunt, 0.3, { autoAlpha: 0 });
 			TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
 			infoProvider.notifyPlayerMove(move);
 			this.selectedObj = null;
@@ -1676,7 +1690,7 @@ class Engine {
 		}
 
 		if (!this.myTurn)
-			$outerProgressbar.css("width", (100 * this.fullTL.time() / this.fullTL.duration()) + '%');
+			$outerProgressbar.css("width", (100 * this.fullTL.progress()) + '%');
 
 		this.renderer.render(this.scene, this.camera);
 	}
@@ -1762,7 +1776,7 @@ class Engine {
 	}
 
 	public playSound(tl: TL, audio: HTMLAudioElement, at: string | number) {
-		tl.call(() => this.sound && audio.play(), null, null, at);
+		tl.call(() => this.sound && (audio.currentTime = 0, audio.play()), null, null, at);
 	}
 
 	public updateActiveObjInfo() {
@@ -1874,11 +1888,15 @@ class Engine {
 	public set graphicsLevel(to: number) {
 		if (this.detailLevel !== to) {
 			if (to > 0) {
+				if (this.orthographic)
+					this.scene.remove(this.orthoEdgeHighlight);
 				this.scene.add(this.edgeshelper);
 				$ui.sGameScene.removeClass("low-detail");
 				TweenMax.ticker.fps(60);
 			} else {
 				this.scene.remove(this.edgeshelper);
+				if (this.orthographic)
+					this.scene.add(this.orthoEdgeHighlight);
 				$ui.sGameScene.addClass("low-detail");
 				TweenMax.ticker.fps(30);
 				this.camera.position.set(0, 0, 12);
@@ -1937,6 +1955,11 @@ class Engine {
 	public set orthographic(to: boolean) {
 		if (this.useOrthographic !== to) {
 			this.useOrthographic = to;
+			if (this.graphicsLevel == 0)
+				if (to)
+					this.scene.add(this.orthoEdgeHighlight);
+				else
+					this.scene.remove(this.orthoEdgeHighlight);
 			this.resetRenderer();
 			if (this.initialized) {
 				settings.orthographic = to;
@@ -2080,6 +2103,7 @@ $(window).load(() => {
 				y: -(idealHeight - viewOrigHeight) / 2
 			}, { x: 0, y: 0, immediateRender: false }, 0);
 			tl.to(placeHolder, duration, { height: idealHeight }, 0);
+			tl.call(() => tl.kill());
 			return tl;
 		} catch (ex) { } finally {
 			breakFourthWall = () => undefined;
@@ -2121,7 +2145,8 @@ $(window).load(() => {
 		const outer = $ui.sIntro.find(".intro-circle.outer"),
 			inner = $ui.sIntro.find(".intro-circle.inner"),
 			bkgRect = $ui.sIntro.find(".intro-line"),
-			title = $ui.sIntro.find(".intro-title");
+			title = $ui.sIntro.find(".intro-title"),
+			specialThanks = $ui.sIntro.find(".special-thanks");
 
 		// 内外圆形
 		tl.staggerTo([outer[0], inner[0]], 2, { height: "12em", width: "12em", ease: Circ.easeInOut }, 0.5);
@@ -2131,6 +2156,23 @@ $(window).load(() => {
 			bkgRect.width(inner.find(".centered").width()).show();
 			inner.hide();
 		});
+
+		// 鸣谢
+		if (Math.random() < 0.3)
+			tl.call(() => {
+				let specialThanksChars = specialThanks.find("figure");
+				let subTL = new TL();
+				specialThanks.show();
+				subTL.staggerFrom(specialThanksChars, 0.2, {
+					cycle: {
+						y: i => Math.cos(i * Math.PI / specialThanksChars.length) * 100 + "%"
+					},
+					x: "+=100%",
+					ease: Back.easeOut,
+					autoAlpha: 0
+				}, 0.05);
+				subTL.to(specialThanks, 0.2, { autoAlpha: 0 });
+			}, null, null, "-=0.5");
 
 		// 拉长矩形
 		tl.fromTo(bkgRect, 0.5, { rotationX: "-90deg" }, { rotationX: "-88deg" });
@@ -2173,11 +2215,10 @@ $(window).load(() => {
 		tl.call(() => ($ui.sGameScene.show(), bkgRect.css({ overflow: "hidden", borderColor: "white" })));
 		tl.to(bkgRect, 1, { width: 0, ease: Power2.easeIn });
 		tl.to(bkgRect, 1, { scaleY: 2, y: "-100%", ease: Power2.easeOut });
-		tl.to(bkgRect, 2, { y: "100%" });
+		tl.to(bkgRect, 1, { y: "100%" });
 		let p = new Promise((resolve: () => void) => tl.call(resolve));
-		tl.from($ui.sGameScene, 2, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=2");
-		tl.call(() => ($ui.sIntro.hide(), infoProvider.notifyRequestResume()));
-
+		tl.from($ui.sGameScene, 1, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=1");
+		tl.call(() => ($ui.sIntro.hide(), infoProvider.notifyRequestResume(), tl.kill()));
 		return p;
 	};
 
