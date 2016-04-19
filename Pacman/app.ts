@@ -2103,7 +2103,6 @@ $(window).load(() => {
 				y: -(idealHeight - viewOrigHeight) / 2
 			}, { x: 0, y: 0, immediateRender: false }, 0);
 			tl.to(placeHolder, duration, { height: idealHeight }, 0);
-			tl.call(() => tl.kill());
 			return tl;
 		} catch (ex) { } finally {
 			breakFourthWall = () => undefined;
@@ -2218,7 +2217,7 @@ $(window).load(() => {
 		tl.to(bkgRect, 1, { y: "100%" });
 		let p = new Promise((resolve: () => void) => tl.call(resolve));
 		tl.from($ui.sGameScene, 1, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=1");
-		tl.call(() => ($ui.sIntro.hide(), infoProvider.notifyRequestResume(), tl.kill()));
+		tl.call(() => ($ui.sIntro.hide(), infoProvider.notifyRequestResume()));
 		return p;
 	};
 

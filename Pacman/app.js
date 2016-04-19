@@ -1853,7 +1853,6 @@ $(window).load(function () {
                 y: -(idealHeight - viewOrigHeight) / 2
             }, { x: 0, y: 0, immediateRender: false }, 0);
             tl.to(placeHolder, duration, { height: idealHeight }, 0);
-            tl.call(function () { return tl.kill(); });
             return tl;
         }
         catch (ex) { }
@@ -1957,7 +1956,7 @@ $(window).load(function () {
         tl.to(bkgRect, 1, { y: "100%" });
         var p = new Promise(function (resolve) { return tl.call(resolve); });
         tl.from($ui.sGameScene, 1, { y: "-100%", opacity: 0, ease: Bounce.easeOut }, "-=1");
-        tl.call(function () { return ($ui.sIntro.hide(), infoProvider.notifyRequestResume(), tl.kill()); });
+        tl.call(function () { return ($ui.sIntro.hide(), infoProvider.notifyRequestResume()); });
         return p;
     };
     // 如果之前跳过了开场……这里再调整一下场景大小
