@@ -1066,7 +1066,8 @@ class GameField extends GameFieldBaseLogic {
 		if (this.testMove(player.playerID, dir)) {
 			let slot = player.fieldCoord.on(this.cellPlayer).val;
 			pull(slot, player);
-			player.fieldCoord.move(dir);
+			let src = this.wrapXY(player.fieldCoord),
+				target = this.wrapXY(player.fieldCoord.move(dir));
 			slot.push(player);
 
 			let tl = new TL();
@@ -1074,16 +1075,18 @@ class GameField extends GameFieldBaseLogic {
 			tl.to(player.scale, 0.1, { x: 1.1, y: 1.1, z: 0.5, ease: Power2.easeOut }, 0);
 			tl.to(player.scale, 0.1, { x: 1, y: 1, z: 1, ease: Power2.easeIn }, 0.1);
 			tl.fromTo(player.position, 0.2, { z: 0 }, { z: 2, ease: Power2.easeOut, yoyo: true, repeat: 1, immediateRender: false }, 0.1);
-			tl.add(this.put(player, 0.4), 0.1);
+
 			if (player.fieldCoord.round()) {
 				this.engine.playSound(tl, sounds.sndWarp, 0.2);
-				tl.to(player.material, 0.1, { opacity: 0, yoyo: true, repeat: 1 }, 0.2);
 				player.fieldCoord.moveOpposite(dir);
 				const s = this.wrapXY(player.fieldCoord),
 					e = this.wrapXY(player.fieldCoord.move(dir));
+				tl.to(player.position, 0.2, mid(src, target), 0.1);
+				tl.to(player.material, 0.1, { opacity: 0, yoyo: true, repeat: 1 }, 0.2);
 				e["immediateRender"] = false;
 				tl.fromTo(player.position, 0.2, mid(s, e), e, 0.3);
-			}
+			} else
+				tl.to(player.position, 0.4, target, 0.1);
 			tl.add(biDirConstSet(player.lazyvars.fieldCoord, "r", player.fieldCoord.r));
 			tl.add(biDirConstSet(player.lazyvars.fieldCoord, "c", player.fieldCoord.c));
 
@@ -1579,6 +1582,7 @@ class Engine {
 
 			let parseLog = (display: IDisplayLog) => {
 				if (this.myTurn) {
+					this.fullTL.timeScale(1);
 					this.myTurn = false;
 					TweenMax.to($ui.txtTaunt, 0.3, { autoAlpha: 0 });
 					TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
@@ -1591,7 +1595,7 @@ class Engine {
 			infoProvider.setNewLogCallback(parseLog);
 			infoProvider.setNewRequestCallback(log => {
 				// 接受用户输入
-				TweenMax.to(this.fullTL, 1.5, { progress: 1, ease: Linear.easeNone });
+				this.fullTL.timeScale(Math.max(this.fullTL.duration() - this.fullTL.time(), 1));
 				TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
 				TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 },
 					{ cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
@@ -1610,6 +1614,7 @@ class Engine {
 	private myTurn = false;
 	public submitDirection(dir: Direction) {
 		if (this.myTurn && this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
+			this.fullTL.timeScale(1);
 			this.myTurn = false;
 			$ui.lblFloatingInfo.removeClass("current-player");
 			let move: IRequest = { action: dir, tauntText: $ui.txtTaunt.val() };
@@ -2036,8 +2041,8 @@ $(window).load(() => {
 						engine.selectedObj = null;
 			});
 			templateContainer.append(infobox);
-			$strengthDeltas[i] = $(".strength-delta.p" + i);
-			$tauntBubbles[i] = $(".bubble.p" + i);
+			TweenMax.set($strengthDeltas[i] = $(".strength-delta.p" + i), { autoAlpha: 0 });
+			TweenMax.set($tauntBubbles[i] = $(".bubble.p" + i), { autoAlpha: 0 });
 		})(i);
 
 	// 填充信息组件

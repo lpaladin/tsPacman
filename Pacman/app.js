@@ -945,22 +945,24 @@ var GameField = (function (_super) {
         if (this.testMove(player.playerID, dir)) {
             var slot = player.fieldCoord.on(this.cellPlayer).val;
             pull(slot, player);
-            player.fieldCoord.move(dir);
+            var src = this.wrapXY(player.fieldCoord), target = this.wrapXY(player.fieldCoord.move(dir));
             slot.push(player);
             var tl = new TL();
             tl.add(rotateNearest(player.rotation, dir), 0);
             tl.to(player.scale, 0.1, { x: 1.1, y: 1.1, z: 0.5, ease: Power2.easeOut }, 0);
             tl.to(player.scale, 0.1, { x: 1, y: 1, z: 1, ease: Power2.easeIn }, 0.1);
             tl.fromTo(player.position, 0.2, { z: 0 }, { z: 2, ease: Power2.easeOut, yoyo: true, repeat: 1, immediateRender: false }, 0.1);
-            tl.add(this.put(player, 0.4), 0.1);
             if (player.fieldCoord.round()) {
                 this.engine.playSound(tl, sounds.sndWarp, 0.2);
-                tl.to(player.material, 0.1, { opacity: 0, yoyo: true, repeat: 1 }, 0.2);
                 player.fieldCoord.moveOpposite(dir);
                 var s = this.wrapXY(player.fieldCoord), e = this.wrapXY(player.fieldCoord.move(dir));
+                tl.to(player.position, 0.2, mid(src, target), 0.1);
+                tl.to(player.material, 0.1, { opacity: 0, yoyo: true, repeat: 1 }, 0.2);
                 e["immediateRender"] = false;
                 tl.fromTo(player.position, 0.2, mid(s, e), e, 0.3);
             }
+            else
+                tl.to(player.position, 0.4, target, 0.1);
             tl.add(biDirConstSet(player.lazyvars.fieldCoord, "r", player.fieldCoord.r));
             tl.add(biDirConstSet(player.lazyvars.fieldCoord, "c", player.fieldCoord.c));
             return tl;
@@ -1359,6 +1361,7 @@ var Engine = (function () {
             _this.sound = settings.sound;
             var parseLog = function (display) {
                 if (_this.myTurn) {
+                    _this.fullTL.timeScale(1);
                     _this.myTurn = false;
                     TweenMax.to($ui.txtTaunt, 0.3, { autoAlpha: 0 });
                     TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
@@ -1369,7 +1372,7 @@ var Engine = (function () {
             infoProvider.setNewLogCallback(parseLog);
             infoProvider.setNewRequestCallback(function (log) {
                 // 接受用户输入
-                TweenMax.to(_this.fullTL, 1.5, { progress: 1, ease: Linear.easeNone });
+                _this.fullTL.timeScale(Math.max(_this.fullTL.duration() - _this.fullTL.time(), 1));
                 TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
                 TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, { cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
                 _this.selectedObj = _this.gameField.players[infoProvider.getPlayerID()];
@@ -1383,6 +1386,7 @@ var Engine = (function () {
     }
     Engine.prototype.submitDirection = function (dir) {
         if (this.myTurn && this.gameField.testMove(infoProvider.getPlayerID(), dir)) {
+            this.fullTL.timeScale(1);
             this.myTurn = false;
             $ui.lblFloatingInfo.removeClass("current-player");
             var move = { action: dir, tauntText: $ui.txtTaunt.val() };
@@ -1796,8 +1800,8 @@ $(window).load(function () {
                         engine.selectedObj = null;
             });
             templateContainer.append(infobox);
-            $strengthDeltas[i] = $(".strength-delta.p" + i);
-            $tauntBubbles[i] = $(".bubble.p" + i);
+            TweenMax.set($strengthDeltas[i] = $(".strength-delta.p" + i), { autoAlpha: 0 });
+            TweenMax.set($tauntBubbles[i] = $(".bubble.p" + i), { autoAlpha: 0 });
         })(i);
     // 填充信息组件
     function fillComponents(obj, ancestor) {
