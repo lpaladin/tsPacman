@@ -585,7 +585,11 @@ var GameFieldBaseLogic = (function () {
                                     players.push(this.players[2]);
                                 if (initdata.content[i][j] & CellStatus.player4)
                                     players.push(this.players[3]);
-                                players.forEach(function (p) { return _this.putAt(p, i, j); });
+                                players.forEach(function (p) {
+                                    _this.putAt(p, i, j);
+                                    p.lazyvars.fieldCoord.r = i;
+                                    p.lazyvars.fieldCoord.c = j;
+                                });
                             }
                             this.cellStatus[i][j] = CellStatus.empty;
                         }
