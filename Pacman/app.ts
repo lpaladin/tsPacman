@@ -1022,7 +1022,7 @@ class GameField extends GameFieldBaseLogic {
 		);
 		tl.fromTo(bobj, 0.2, { autoAlpha: 0, scale: 0 },
 			{ autoAlpha: 1, scale: 1, immediateRender: false, ease: Back.easeOut });
-		tl.to(bobj, 0.1, { autoAlpha: 0 }, 0.8);
+		tl.to(bobj, 0.1, { autoAlpha: 0 }, 1);
 		return tl;
 	}
 
@@ -1132,7 +1132,7 @@ class GameField extends GameFieldBaseLogic {
 				fruit.fieldCoord = target.copy<FieldObject>();
 				target.on(this.cellStatus).val = CellStatus.smallFruit;
 				tl.add(biDirConstSet(fruit, "visible", true), j * 0.1);
-				tl.set(fruit.material, { opacity: 1, immediateRender: false });
+				tl.set(fruit.material, { opacity: 1, immediateRender: false }, j * 0.1);
 				tl.fromTo(fruit.position, 0.5, this.wrapXY(generator.fieldCoord), this.wrapXY(target, { immediateRender: false }), j * 0.1);
 
 				// 这里使用 0.01 是为了防止 THREE.js 报矩阵不满秩的 Warning
@@ -1595,7 +1595,7 @@ class Engine {
 			infoProvider.setNewLogCallback(parseLog);
 			infoProvider.setNewRequestCallback(log => {
 				// 接受用户输入
-				this.fullTL.timeScale(Math.max(this.fullTL.duration() - this.fullTL.time(), 1));
+				this.fullTL.timeScale(Math.max((this.fullTL.duration() - this.fullTL.time()) * 2 / 3, 1));
 				TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
 				TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 },
 					{ cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
@@ -2282,7 +2282,9 @@ $(window).load(() => {
 		if (settings[i] === undefined)
 			settings[i] = defaults[i];
 
-	if (settings.intro)
+	let isLive = infoProvider.isLive();
+
+	if (!isLive && settings.intro)
 		settings.intro = !confirm("是否要跳过开场动画？\n\n你可以在右上角的设置中随时更改。");
 	saveSettings();
 
@@ -2304,7 +2306,7 @@ $(window).load(() => {
 		r();
 	}).then(fLoadExternalModels);
 
-	if (settings.intro)
+	if (!isLive && settings.intro)
 		p = p.then(fOpening);
 	else
 		p = p.then(fBreakFourthWallAgain);

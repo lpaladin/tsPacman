@@ -901,7 +901,7 @@ var GameField = (function (_super) {
             return TweenMax.set(bobj, _this.engine.projectTo2D(_this.wrapXY(player.lazyvars.fieldCoord, { z: 1 })));
         });
         tl.fromTo(bobj, 0.2, { autoAlpha: 0, scale: 0 }, { autoAlpha: 1, scale: 1, immediateRender: false, ease: Back.easeOut });
-        tl.to(bobj, 0.1, { autoAlpha: 0 }, 0.8);
+        tl.to(bobj, 0.1, { autoAlpha: 0 }, 1);
         return tl;
     };
     GameField.prototype.showResults = function (scores) {
@@ -1005,7 +1005,7 @@ var GameField = (function (_super) {
                 fruit.fieldCoord = target.copy();
                 target.on(this.cellStatus).val = CellStatus.smallFruit;
                 tl.add(biDirConstSet(fruit, "visible", true), j * 0.1);
-                tl.set(fruit.material, { opacity: 1, immediateRender: false });
+                tl.set(fruit.material, { opacity: 1, immediateRender: false }, j * 0.1);
                 tl.fromTo(fruit.position, 0.5, this.wrapXY(generator.fieldCoord), this.wrapXY(target, { immediateRender: false }), j * 0.1);
                 // 这里使用 0.01 是为了防止 THREE.js 报矩阵不满秩的 Warning
                 tl.fromTo(fruit.scale, 0.5, { x: 0.01, y: 0.01, z: 0.01 }, { x: 1, y: 1, z: 1, immediateRender: false }, j * 0.1);
@@ -1372,7 +1372,7 @@ var Engine = (function () {
             infoProvider.setNewLogCallback(parseLog);
             infoProvider.setNewRequestCallback(function (log) {
                 // 接受用户输入
-                _this.fullTL.timeScale(Math.max(_this.fullTL.duration() - _this.fullTL.time(), 1));
+                _this.fullTL.timeScale(Math.max((_this.fullTL.duration() - _this.fullTL.time()) * 2 / 3, 1));
                 TweenMax.fromTo($ui.txtTaunt, 0.3, { autoAlpha: 0 }, { autoAlpha: 1 });
                 TweenMax.staggerFromTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, { cycle: { rotation: [0, 45, 135, 225, 315] }, scale: 1, autoAlpha: 1 }, 0.1);
                 _this.selectedObj = _this.gameField.players[infoProvider.getPlayerID()];
@@ -2009,7 +2009,8 @@ $(window).load(function () {
     for (var i in defaults)
         if (settings[i] === undefined)
             settings[i] = defaults[i];
-    if (settings.intro)
+    var isLive = infoProvider.isLive();
+    if (!isLive && settings.intro)
         settings.intro = !confirm("是否要跳过开场动画？\n\n你可以在右上角的设置中随时更改。");
     saveSettings();
     $ui.chkAntiAliasing[0].checked = settings.antialiasing;
@@ -2026,7 +2027,7 @@ $(window).load(function () {
         infoProvider.notifyFinishedLoading();
         r();
     }).then(fLoadExternalModels);
-    if (settings.intro)
+    if (!isLive && settings.intro)
         p = p.then(fOpening);
     else
         p = p.then(fBreakFourthWallAgain);
