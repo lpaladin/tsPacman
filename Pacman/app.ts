@@ -499,6 +499,7 @@ interface ICookieSettings {
 	antialiasing: boolean;
 	graphicsLevel: number;
 	orthographic: boolean;
+	fixedCamera: boolean;
 	sound: boolean;
 	musicProgress: {
 		id: number;
@@ -694,7 +695,7 @@ abstract class GameFieldBaseLogic {
 		}
 	}
 
-	public applyChange(log: IDisplayLog): TL {
+	public applyChange(parent: TL, log: IDisplayLog) {
 		let tl = new TL();
 		let i: number;
 		let _: number;
@@ -781,13 +782,6 @@ abstract class GameFieldBaseLogic {
 				}
 
 			}
-
-			// *. 力量变化
-			if (trace.strengthDelta[_.toString()])
-				tl.add(
-					this.strengthModification(_p, trace.strengthDelta[_.toString()]),
-					0.5
-				);
 		}
 
 		this.turnID++;
@@ -798,7 +792,22 @@ abstract class GameFieldBaseLogic {
 			tl.add(this.showResults(log.result));
 		}
 
-		return tl;
+		let currentPos = tl.duration();
+
+		// *. 力量变化
+		for (_ = 0; _ < MAX_PLAYER_COUNT; _++) {
+			let _p = this.players[_];
+			if (trace.strengthDelta[_.toString()])
+				tl.add(
+					this.strengthModification(_p, trace.strengthDelta[_.toString()]),
+					0.5
+				);
+		}
+		if (infoProvider.isLive())
+			parent.add(tl);
+		else
+			parent.add(tl, "insertPoint" + (this.turnID - 1));
+		parent.addLabel("insertPoint" + this.turnID, tl.startTime() + currentPos);
 	}
 
 	public roundToCoordAndSet(pos: THREE.Vector3 | THREE.Vector2, obj: FieldObject, duration: number = 0) {
@@ -1319,6 +1328,7 @@ let $ui = {
 	radLowGraphicsLevel: <JQuery>null,
 	chkIntro: <JQuery>null,
 	chkOrthographic: <JQuery>null,
+	chkFixedCamera: <JQuery>null,
 	chkSound: <JQuery>null
 }, $info = {
 	self: <JQuery>null,
@@ -1383,6 +1393,7 @@ class Engine {
 	private detailLevel: number;
 	private enableSound: boolean;
 	private useOrthographic: boolean;
+	private cameraFixed: boolean;
 
 	// 状态
 	private _cinematic = false;
@@ -1458,6 +1469,7 @@ class Engine {
 			}
 
 			this.gameField = new GameField(this, initdata, names);
+			this.fullTL.addLabel("insertPoint0", 0);
 
 			this.dispWidth = $ui.sGameScene.width();
 			this.dispHeight = $ui.sGameScene.height();
@@ -1582,6 +1594,7 @@ class Engine {
 			this.useOrthographic = settings.orthographic;
 			this.antialiasing = settings.antialiasing;
 			this.graphicsLevel = settings.graphicsLevel;
+			this.fixedCamera = settings.fixedCamera;
 			this.sound = settings.sound;
 
 			let parseLog = (display: IDisplayLog) => {
@@ -1591,7 +1604,7 @@ class Engine {
 					TweenMax.to($ui.txtTaunt, 0.3, { autoAlpha: 0 });
 					TweenMax.staggerTo($ui.panControl.find(".control"), 0.3, { scale: 0, rotation: 0, autoAlpha: 0 }, 0.1);
 				}
-				this.fullTL.add(this.gameField.applyChange(display));
+				this.gameField.applyChange(this.fullTL, display);
 			};
 
 			logs.forEach(parseLog);
@@ -1631,61 +1644,65 @@ class Engine {
 	}
 
 	public renderTick() {
-		if (!this.cinematic && this.graphicsLevel > 0) {
+		if (!this.cinematic) {
 
-			if (this.orthographic) {
-				let tiltx = this.mouseCoord.x * Math.PI / 8;
-				let tilty = this.mouseCoord.y * Math.PI / 8;
+			if (!this.fixedCamera) {
+				if (this.orthographic) {
+					let tiltx = this.mouseCoord.x * Math.PI / 8;
+					let tilty = this.mouseCoord.y * Math.PI / 8;
 
-				// 鼠标控制视角
-				this.camera.rotation.set(-tilty, tiltx, 0);
-			} else {
-				let tiltx = this.mouseCoord.x * Math.PI / 2;
-				let tilty = this.mouseCoord.y * Math.PI / 2;
+					// 鼠标控制视角
+					this.camera.rotation.set(-tilty, tiltx, 0);
+				} else {
+					let tiltx = this.mouseCoord.x * Math.PI / 2;
+					let tilty = this.mouseCoord.y * Math.PI / 2;
 
-				// 鼠标控制视角
-				this.camera.position.x = Math.sin(tiltx) * this.fieldMaxWidth;
-				this.camera.position.y = Math.sin(tilty) * this.fieldMaxHeight;
-				this.camera.lookAt(zeroVector3);
+					// 鼠标控制视角
+					this.camera.position.x = Math.sin(tiltx) * this.fieldMaxWidth;
+					this.camera.position.y = Math.sin(tilty) * this.fieldMaxHeight;
+					this.camera.lookAt(zeroVector3);
+				}
 			}
 
-			// 查找鼠标指向的物件
-			this.raycaster.setFromCamera(this.mouseCoord, this.camera);
-			let intersects = this.raycaster.intersectObjects(this.scene.childrenExcludingHelpers);
+			if (this.graphicsLevel > 0) {
+				// 查找鼠标指向的物件
+				this.raycaster.setFromCamera(this.mouseCoord, this.camera);
+				let intersects = this.raycaster.intersectObjects(this.scene.childrenExcludingHelpers);
 
-			if (this.mouseDown) {
-				if (this.mouseDownFirst)
-					for (let intersect of intersects) {
-						let obj = intersect.object;
-						if (obj != this.field) {
-							if (obj instanceof FieldObject) {
-								if (obj == this.selectedObj)
-									this.selectedObj = null;
-								else
-									this.selectedObj = obj as FieldObject;
+				if (this.mouseDown) {
+					if (this.mouseDownFirst)
+						for (let intersect of intersects) {
+							let obj = intersect.object;
+							if (obj != this.field) {
+								if (obj instanceof FieldObject) {
+									if (obj == this.selectedObj)
+										this.selectedObj = null;
+									else
+										this.selectedObj = obj as FieldObject;
+								}
+							} else if (this.selectedObj) {
+								this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
 							}
-						} else if (this.selectedObj) {
-							this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
 						}
-					}
-				else if (this.selectedObj)
-					for (let intersect of intersects)
-						if (intersect.object == this.field) {
-							this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
-							break;
-						}
-			} else {
-				if (intersects.length == 0)
-					this.hoveredObj = null;
-				else
-					for (let intersect of intersects)
-						if (intersect.object instanceof FieldObject) {
-							this.hoveredObj = intersect.object as FieldObject;
-							break;
-						}
-			}
+					else if (this.selectedObj)
+						for (let intersect of intersects)
+							if (intersect.object == this.field) {
+								this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
+								break;
+							}
+				} else {
+					if (intersects.length == 0)
+						this.hoveredObj = null;
+					else
+						for (let intersect of intersects)
+							if (intersect.object instanceof FieldObject) {
+								this.hoveredObj = intersect.object as FieldObject;
+								break;
+							}
+				}
 
-			this.mouseDownFirst = false;
+				this.mouseDownFirst = false;
+			}
 		}
 
 		let activeObj = this.selectedObj || this.hoveredObj;
@@ -1908,12 +1925,27 @@ class Engine {
 					this.scene.add(this.orthoEdgeHighlight);
 				$ui.sGameScene.addClass("low-detail");
 				TweenMax.ticker.fps(30);
-				this.camera.position.set(0, 0, 12);
-				this.camera.lookAt(zeroVector3);
 			}
 			this.detailLevel = to;
 			if (this.initialized) {
 				settings.graphicsLevel = to;
+				saveSettings();
+			}
+		}
+	}
+
+	public get fixedCamera() {
+		return this.cameraFixed;
+	}
+	public set fixedCamera(to: boolean) {
+		if (this.cameraFixed !== to) {
+			if (to) {
+				this.camera.position.set(0, 0, 12);
+				this.camera.lookAt(zeroVector3);
+			}
+			this.cameraFixed = to;
+			if (this.initialized) {
+				settings.fixedCamera = to;
 				saveSettings();
 			}
 		}
@@ -2275,6 +2307,7 @@ $(window).load(() => {
 		graphicsLevel: 1,
 		intro: true,
 		orthographic: false,
+		fixedCamera: true,
 		sound: true,
 		musicProgress: {
 			id: 0,
@@ -2299,6 +2332,7 @@ $(window).load(() => {
 		(<any>$ui.radHighGraphicsLevel[0]).checked = true;
 	(<any>$ui.chkIntro[0]).checked = settings.intro;
 	(<any>$ui.chkOrthographic[0]).checked = settings.orthographic;
+	(<any>$ui.chkFixedCamera[0]).checked = settings.fixedCamera;
 	(<any>$ui.chkSound[0]).checked = settings.sound;
 
 	const fFinalInitializations = () => {
