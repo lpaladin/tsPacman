@@ -1405,6 +1405,7 @@ class Engine {
 	private dispHeight: number;
 	private fieldMaxWidth: number;
 	private fieldMaxHeight: number;
+	private orthographicScaleFactor: number = 1;
 
 	// THREE.js 基础
 	private scene: PScene;
@@ -1539,6 +1540,19 @@ class Engine {
 				.on('wheel', event => {
 					if (!this.orthographic) {
 						TweenMax.to(this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) });
+					} else {
+						this.orthographicScaleFactor += (event.originalEvent['deltaY'] / 500);
+						let ratio = this.dispWidth / this.dispHeight,
+							h = (this.gameField.height + 1) / 2,
+							w = h * ratio;
+						w *= this.orthographicScaleFactor;
+						h *= this.orthographicScaleFactor;
+						let ocamera = this.camera as THREE.OrthographicCamera;
+						ocamera.top = h;
+						ocamera.bottom = -h;
+						ocamera.left = -w;
+						ocamera.right = w;
+						ocamera.updateProjectionMatrix();
 					}
 				});
 
@@ -1680,16 +1694,17 @@ class Engine {
 									else
 										this.selectedObj = obj as FieldObject;
 								}
-							} else if (this.selectedObj) {
-								this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
 							}
+							//else if (this.selectedObj) {
+							//	this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
+							//}
 						}
-					else if (this.selectedObj)
-						for (let intersect of intersects)
-							if (intersect.object == this.field) {
-								this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
-								break;
-							}
+					//else if (this.selectedObj)
+					//	for (let intersect of intersects)
+					//		if (intersect.object == this.field) {
+					//			this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
+					//			break;
+					//		}
 				} else {
 					if (intersects.length == 0)
 						this.hoveredObj = null;
@@ -1743,6 +1758,8 @@ class Engine {
 			let ratio = this.dispWidth / this.dispHeight,
 				h = (this.gameField.height + 1) / 2,
 				w = h * ratio;
+			w *= this.orthographicScaleFactor;
+			h *= this.orthographicScaleFactor;
 			this.camera = new THREE.OrthographicCamera(-w, w, h, -h, -30, 30);
 		} else {
 			this.camera = new THREE.PerspectiveCamera(50, this.dispWidth / this.dispHeight);

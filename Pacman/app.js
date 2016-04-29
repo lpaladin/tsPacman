@@ -1219,6 +1219,7 @@ var Engine = (function () {
         this.initialized = false;
         // 参数
         this.wallThickness = 0.25;
+        this.orthographicScaleFactor = 1;
         // THREE.js 场景物件
         this.lights = {
             sky: null,
@@ -1322,6 +1323,18 @@ var Engine = (function () {
                 .on('wheel', function (event) {
                 if (!_this.orthographic) {
                     TweenMax.to(_this.camera.position, 0.1, { z: "+=" + (event.originalEvent['deltaY'] / 100) });
+                }
+                else {
+                    _this.orthographicScaleFactor += (event.originalEvent['deltaY'] / 500);
+                    var ratio = _this.dispWidth / _this.dispHeight, h = (_this.gameField.height + 1) / 2, w = h * ratio;
+                    w *= _this.orthographicScaleFactor;
+                    h *= _this.orthographicScaleFactor;
+                    var ocamera = _this.camera;
+                    ocamera.top = h;
+                    ocamera.bottom = -h;
+                    ocamera.left = -w;
+                    ocamera.right = w;
+                    ocamera.updateProjectionMatrix();
                 }
             });
             var keyCode2dir = {
@@ -1447,25 +1460,14 @@ var Engine = (function () {
                                         this.selectedObj = obj;
                                 }
                             }
-                            else if (this.selectedObj) {
-                                this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
-                            }
-                        }
-                    else if (this.selectedObj)
-                        for (var _a = 0; _a < intersects.length; _a++) {
-                            var intersect = intersects[_a];
-                            if (intersect.object == this.field) {
-                                this.gameField.roundToCoordAndSet(intersect.point, this.selectedObj, 0.1);
-                                break;
-                            }
                         }
                 }
                 else {
                     if (intersects.length == 0)
                         this.hoveredObj = null;
                     else
-                        for (var _b = 0; _b < intersects.length; _b++) {
-                            var intersect = intersects[_b];
+                        for (var _a = 0; _a < intersects.length; _a++) {
+                            var intersect = intersects[_a];
                             if (intersect.object instanceof FieldObject) {
                                 this.hoveredObj = intersect.object;
                                 break;
@@ -1477,7 +1479,7 @@ var Engine = (function () {
         }
         var activeObj = this.selectedObj || this.hoveredObj;
         if (activeObj) {
-            var _c = this.projectTo2D(activeObj.position), x = _c.x, y = _c.y;
+            var _b = this.projectTo2D(activeObj.position), x = _b.x, y = _b.y;
             $ui.lblFloatingInfo.css("transform", "translate(" + x + "px," + y + "px)");
         }
         if (!this.myTurn)
@@ -1501,6 +1503,8 @@ var Engine = (function () {
         this.renderer.setClearColor(0xe8f4d6, 1);
         if (this.orthographic) {
             var ratio = this.dispWidth / this.dispHeight, h = (this.gameField.height + 1) / 2, w = h * ratio;
+            w *= this.orthographicScaleFactor;
+            h *= this.orthographicScaleFactor;
             this.camera = new THREE.OrthographicCamera(-w, w, h, -h, -30, 30);
         }
         else {
