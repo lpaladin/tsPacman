@@ -26,6 +26,7 @@ var __extends = (this && this.__extends) || function (d, b) {
 
  */
 window['Promise'] = window['Promise'] || window['ES6Promise'];
+var sizeHack = window.localStorage.getItem("hacked") == "true";
 //#region 工具
 var MAX_PLAYER_COUNT = 4;
 var zeroVector2 = new THREE.Vector2();
@@ -676,16 +677,17 @@ var GameFieldBaseLogic = (function () {
         }
         this.turnID++;
         tl.add(this.updateDisplayInfo());
-        if (log.result) {
-            // 游戏结束啦
-            tl.add(this.showResults(log.result));
-        }
         var currentPos = tl.duration();
         // *. 力量变化
         for (_ = 0; _ < MAX_PLAYER_COUNT; _++) {
             var _p = this.players[_];
             if (trace.strengthDelta[_.toString()])
                 tl.add(this.strengthModification(_p, trace.strengthDelta[_.toString()]), 0.5);
+        }
+        tl.add(this.updateDisplayRank());
+        if (log.result) {
+            // 游戏结束啦
+            tl.add(this.showResults(log.result));
         }
         if (infoProvider.isLive())
             parent.add(tl);
@@ -834,18 +836,19 @@ var GameField = (function (_super) {
         return tl;
     };
     GameField.prototype.updateDisplayInfo = function () {
-        var _this = this;
         var tl = new TL();
+        tl.add(tweenContentAsNumber($info.alivecount, this.aliveCount), 0);
+        tl.add(tweenContentAsNumber($info.turnid, this.turnID), 0);
+        return tl;
+    };
+    GameField.prototype.updateDisplayRank = function () {
+        var _this = this;
         var newOrder = [0, 1, 2, 3];
         newOrder.sort(function (a, b) { return _this.players[b].strength - _this.players[a].strength; });
-        if (this.oldOrder.every(function (v, i) { return v == newOrder[i]; })) {
-            tl.add(tweenContentAsNumber($info.alivecount, this.aliveCount), 0);
-            tl.add(tweenContentAsNumber($info.turnid, this.turnID), 0);
-            return tl;
-        }
+        if (this.oldOrder.every(function (v, i) { return v == newOrder[i]; }))
+            return;
+        var tl = new TL();
         (function (oldOrder, newOrder) {
-            tl.add(tweenContentAsNumber($info.alivecount, _this.aliveCount), 0);
-            tl.add(tweenContentAsNumber($info.turnid, _this.turnID), 0);
             // 改变左侧顺序
             var offsets = [];
             for (var rank = 0; rank < newOrder.length; rank++)
@@ -1263,6 +1266,8 @@ var Engine = (function () {
             var names;
             try {
                 names = infoProvider.getPlayerNames().map(function (o) { return o.name; }) || [];
+                if (sizeHack)
+                    names = names.map(function (n) { return n.split("]")[0].substr(1); });
             }
             catch (ex) {
                 names = [];
@@ -1313,11 +1318,21 @@ var Engine = (function () {
             _this.gameField.initializeProps(_this.scene);
             // 让 Three.JS 使用 Greensocks 的渲染循环
             TweenMax.ticker.addEventListener('tick', _this.renderTick.bind(_this));
+            if (sizeHack) {
+                var lOffset = $ui.mainCanvas.offset().left;
+                $ui.mainCanvas
+                    .mousemove(function (event) {
+                    _this.mouseCoord.x = ((event.clientX - lOffset) / _this.dispWidth) * 2 - 1;
+                    _this.mouseCoord.y = -(event.clientY / _this.dispHeight) * 2 + 1;
+                });
+            }
+            else
+                $ui.mainCanvas
+                    .mousemove(function (event) {
+                    _this.mouseCoord.x = (event.clientX / _this.dispWidth) * 2 - 1;
+                    _this.mouseCoord.y = -(event.clientY / _this.dispHeight) * 2 + 1;
+                });
             $ui.mainCanvas
-                .mousemove(function (event) {
-                _this.mouseCoord.x = (event.clientX / _this.dispWidth) * 2 - 1;
-                _this.mouseCoord.y = -(event.clientY / _this.dispHeight) * 2 + 1;
-            })
                 .mousedown(function () { return (_this.mouseDown = true, _this.mouseDownFirst = true); })
                 .mouseup(function () { return _this.mouseDown = false; })
                 .on('wheel', function (event) {
@@ -1868,11 +1883,29 @@ $(window).load(function () {
         try {
             var $parent = $(window.parent.document);
             var view = $parent.find('#dDanmakuOverlay'), viewOrigPos = view.offset(), viewOrigHeight = view.height(), viewOrigWidth = view.width(), navbarHeight = $parent.find('#dNavbar')[0].offsetHeight, screenRealHeight = window.parent.innerHeight, screenRealWidth = window.parent.innerWidth, bodyHeight = window.parent.document.body.offsetHeight, idealHeight = screenRealHeight - (bodyHeight - viewOrigHeight);
+            var iframe = $(window.frameElement);
+            if (sizeHack) {
+                view.css({
+                    position: "fixed",
+                    zIndex: 99999,
+                    top: 0,
+                    left: 0,
+                    width: screenRealWidth,
+                    height: screenRealHeight
+                });
+                $("footer.keymap").hide();
+                $outerProgressbar = $parent.find('#prgbarStatus .progress-bar').css("transition", "none");
+                iframe.removeProp("height").css({
+                    height: screenRealHeight,
+                    width: screenRealWidth
+                });
+                $("#lnkCSS").prop("href", "http://localhost:15233/static/GameContest2016SDisplay/Pacman/app.min.css");
+                return tl;
+            }
             var placeHolder = $("<div></div>").css({
                 height: viewOrigHeight,
                 width: viewOrigWidth
             });
-            var iframe = $(window.frameElement);
             var fn = function () {
                 $parent.find("#dPlayback a:eq(0), #dPlayback a:eq(2), #dDanmakuConsole").hide();
                 $outerProgressbar = $parent.find('#prgbarStatus .progress-bar').css("transition", "none");
@@ -1944,7 +1977,7 @@ $(window).load(function () {
             inner.hide();
         });
         // 鸣谢
-        if (Math.random() < 0.3)
+        if (Math.random() < 1)
             tl.call(function () {
                 var specialThanksChars = specialThanks.find("figure");
                 var subTL = new TL();
@@ -1957,11 +1990,11 @@ $(window).load(function () {
                     ease: Back.easeOut,
                     autoAlpha: 0
                 }, 0.05);
-                subTL.to(specialThanks, 0.2, { autoAlpha: 0 });
+                subTL.to(specialThanks, 0.2, { autoAlpha: 0 }, 2);
             }, null, null, "-=0.5");
         // 拉长矩形
         tl.fromTo(bkgRect, 0.5, { rotationX: "-90deg" }, { rotationX: "-88deg" });
-        tl.to(bkgRect, 0.5, { scaleX: 3 }, "+=0.1");
+        tl.to(bkgRect, 0.5, { scaleX: 4 }, "+=0.1");
         tl.to(bkgRect, 0.5, { rotationX: "0deg" }, "+=0.1");
         tl.call(function () { return title.show(); });
         // 文字导入
@@ -1985,7 +2018,7 @@ $(window).load(function () {
         var subtl = breakFourthWall();
         subtl.to(window.parent.document.body, 0.5, { opacity: 1 }, 0);
         subtl.add(shake(4, window.parent.document.body, 0.2), 0);
-        subtl.call(function () { return bkgRect.width("25vw" /* x 3 = 75vw */); }, null, null, 0.2);
+        subtl.call(function () { return bkgRect.width("20vw" /* x 4 = 80vw */); }, null, null, 0.2);
         subtl.paused(true);
         tl.to(subtl, subtl.duration(), { time: subtl.duration(), ease: SteppedEase.config(15) }, "-=0.2");
         // 边框特技
